@@ -1,0 +1,53 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ai-task-scheduler
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/careerpilot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:careerpilot}
+    password: ${MYSQL_PASSWORD:cp123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+# ── 编排与回调 ────────────────────────────────────────────────
+careerpilot:
+  orchestrator-url: ${AI_ORCHESTRATOR_URL:http://localhost:8001}
+  timeout-seconds: ${AI_TIMEOUT_SECONDS:180}
+  agent-names:
+    jd_parse: jd-parser-agent
+    resume_analyze: resume-analyzer-agent
+    match_score: match-agent
+    resume_optimize: resume-optimizer-agent
+    interview: interview-agent
+    cover_letter: cover-letter-agent
+    career_plan: career-advisor-agent
+  # 只有需要把结果写回业务表的类型才配回调；
+  # resume_optimize / interview / cover_letter / career_plan 的结果留在
+  # t_ai_task.output_payload，由前端按 taskId 自行拉取。
+  callbacks:
+    jd_parse: ${JD_SERVICE_CALLBACK_URL:http://localhost:8083/internal/jd-parse-callback}
+    resume_analyze: ${RESUME_SERVICE_CALLBACK_URL:http://localhost:8082/internal/resume-analyze-callback}
+    match_score: ${MATCH_SERVICE_CALLBACK_URL:http://localhost:8084/internal/match-callback}
+
+logging:
+  level:
+    root: INFO
+    com.careerpilot: DEBUG

@@ -1,0 +1,39 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-center
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/careerpilot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:careerpilot}
+    password: ${MYSQL_PASSWORD:cp123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+jwt:
+  # 生产环境必须用 JWT_SECRET 覆盖，默认值只够本地跑
+  secret: ${JWT_SECRET:careerpilot-default-secret-key-must-be-at-least-256-bits-long-for-hs256}
+  access-token-expiration: 7200
+  refresh-token-expiration: 2592000
+
+logging:
+  level:
+    root: INFO
+    com.careerpilot: DEBUG

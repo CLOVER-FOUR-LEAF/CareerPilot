@@ -1,0 +1,42 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: match-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/careerpilot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:careerpilot}
+    password: ${MYSQL_PASSWORD:cp123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  # 匹配要拉两份完整正文（简历 + JD），超时给足
+  mvc:
+    async:
+      request-timeout: 60000
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+careerpilot:
+  ai-scheduler-url: ${AI_SCHEDULER_URL:http://localhost:8085}
+  resume-service-url: ${RESUME_SERVICE_URL:http://localhost:8082}
+  jd-service-url: ${JD_SERVICE_URL:http://localhost:8083}
+
+logging:
+  level:
+    root: INFO
+    com.careerpilot: DEBUG

@@ -1,0 +1,58 @@
+# ── Java / Maven ──────────────────────────────────────────────
+target/
+*.jar
+*.war
+*.class
+.mvn/
+mvnw
+mvnw.cmd
+
+# ── Node / 前端 ───────────────────────────────────────────────
+node_modules/
+web/dist/
+web/.vite/
+*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── 环境与密钥 ─────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── IDE ───────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ── 日志与运行时产物 ───────────────────────────────────────────
+logs/
+*.log
+data/
+uploads/
+tmp/
+
+# ── 本地数据库与缓存 ───────────────────────────────────────────
+*.sql.gz
+.mysql/
+.redis/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

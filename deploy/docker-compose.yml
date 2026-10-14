@@ -1,0 +1,311 @@
+name: careerpilot
+
+services:
+
+  # ══════════════════════════════════════════════════════════════
+  # 基础设施
+  # ══════════════════════════════════════════════════════════════
+
+  mysql:
+    image: mysql:8.0
+    container_name: careerpilot-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: careerpilot
+      MYSQL_USER: ${MYSQL_USER:-careerpilot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cp123456}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # V1__init_schema.sql 只在数据卷为空（首次启动）时执行一次
+      - ../db/migrations:/docker-entrypoint-initdb.d:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [careerpilot-net]
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: careerpilot-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123456}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123456}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [careerpilot-net]
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: careerpilot-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../web/dist:/usr/share/nginx/html:ro
+    depends_on: [gateway-service]
+    networks: [careerpilot-net]
+
+  # ══════════════════════════════════════════════════════════════
+  # Java 业务微服务
+  # ══════════════════════════════════════════════════════════════
+
+  gateway-service:
+    build:
+      context: ../services/gateway-service
+      dockerfile: Dockerfile
+    container_name: careerpilot-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      USER_CENTER_HOST: user-center
+      RESUME_SERVICE_HOST: resume-service
+      JD_SERVICE_HOST: jd-service
+      MATCH_SERVICE_HOST: match-service
+      AI_SCHEDULER_HOST: ai-task-scheduler
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      JWT_SECRET: ${JWT_SECRET:-careerpilot-default-secret-key-must-be-at-least-256-bits-long-for-hs256}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+    depends_on:
+      - user-center
+      - resume-service
+      - jd-service
+      - match-service
+      - ai-task-scheduler
+    networks: [careerpilot-net]
+
+  user-center:
+    build:
+      context: ../services/user-center
+      dockerfile: Dockerfile
+    container_name: careerpilot-user-center
+    ports:
+      - "8081:8081"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-careerpilot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cp123456}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      JWT_SECRET: ${JWT_SECRET:-careerpilot-default-secret-key-must-be-at-least-256-bits-long-for-hs256}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [careerpilot-net]
+
+  resume-service:
+    build:
+      context: ../services/resume-service
+      dockerfile: Dockerfile
+    container_name: careerpilot-resume
+    ports:
+      - "8082:8082"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-careerpilot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cp123456}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      AI_SCHEDULER_URL: http://ai-task-scheduler:8085
+      STORAGE_ROOT: /data/uploads
+    volumes:
+      - resume_uploads:/data/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ai-task-scheduler:
+        condition: service_started
+    networks: [careerpilot-net]
+
+  jd-service:
+    build:
+      context: ../services/jd-service
+      dockerfile: Dockerfile
+    container_name: careerpilot-jd
+    ports:
+      - "8083:8083"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-careerpilot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cp123456}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      AI_SCHEDULER_URL: http://ai-task-scheduler:8085
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ai-task-scheduler:
+        condition: service_started
+    networks: [careerpilot-net]
+
+  match-service:
+    build:
+      context: ../services/match-service
+      dockerfile: Dockerfile
+    container_name: careerpilot-match
+    ports:
+      - "8084:8084"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-careerpilot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cp123456}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      AI_SCHEDULER_URL: http://ai-task-scheduler:8085
+      RESUME_SERVICE_URL: http://resume-service:8082
+      JD_SERVICE_URL: http://jd-service:8083
+    depends_on:
+      mysql:
+        condition: service_healthy
+      resume-service:
+        condition: service_started
+      jd-service:
+        condition: service_started
+    networks: [careerpilot-net]
+
+  ai-task-scheduler:
+    build:
+      context: ../services/ai-task-scheduler
+      dockerfile: Dockerfile
+    container_name: careerpilot-scheduler
+    ports:
+      - "8085:8085"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-careerpilot}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cp123456}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123456}
+      AI_ORCHESTRATOR_URL: http://agent-orchestrator:8001
+      JD_SERVICE_CALLBACK_URL: http://jd-service:8083/internal/jd-parse-callback
+      RESUME_SERVICE_CALLBACK_URL: http://resume-service:8082/internal/resume-analyze-callback
+      MATCH_SERVICE_CALLBACK_URL: http://match-service:8084/internal/match-callback
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [careerpilot-net]
+
+  # ══════════════════════════════════════════════════════════════
+  # Python AI Agent 层（8001 编排 + 8002-8008 专用 Agent）
+  # ══════════════════════════════════════════════════════════════
+
+  agent-orchestrator:
+    build:
+      context: ../agents/agent-orchestrator
+      dockerfile: Dockerfile
+    container_name: careerpilot-orchestrator
+    ports:
+      - "8001:8001"
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123456}@redis:6379/0
+      JD_PARSER_URL: http://jd-parser-agent:8002
+      RESUME_ANALYZER_URL: http://resume-analyzer-agent:8003
+      MATCH_AGENT_URL: http://match-agent:8004
+      RESUME_OPTIMIZER_URL: http://resume-optimizer-agent:8005
+      INTERVIEW_AGENT_URL: http://interview-agent:8006
+      COVER_LETTER_AGENT_URL: http://cover-letter-agent:8007
+      CAREER_ADVISOR_URL: http://career-advisor-agent:8008
+      AGENT_TIMEOUT_SECONDS: "180"
+    networks: [careerpilot-net]
+
+  jd-parser-agent:
+    build:
+      context: ../agents/jd-parser-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-jd-parser
+    ports:
+      - "8002:8002"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks: [careerpilot-net]
+
+  resume-analyzer-agent:
+    build:
+      context: ../agents/resume-analyzer-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-resume-analyzer
+    ports:
+      - "8003:8003"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks: [careerpilot-net]
+
+  match-agent:
+    build:
+      context: ../agents/match-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-match-agent
+    ports:
+      - "8004:8004"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks: [careerpilot-net]
+
+  resume-optimizer-agent:
+    build:
+      context: ../agents/resume-optimizer-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-resume-optimizer
+    ports:
+      - "8005:8005"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks: [careerpilot-net]
+
+  interview-agent:
+    build:
+      context: ../agents/interview-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-interview
+    ports:
+      - "8006:8006"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks: [careerpilot-net]
+
+  cover-letter-agent:
+    build:
+      context: ../agents/cover-letter-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-cover-letter
+    ports:
+      - "8007:8007"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    networks: [careerpilot-net]
+
+  career-advisor-agent:
+    build:
+      context: ../agents/career-advisor-agent
+      dockerfile: Dockerfile
+    container_name: careerpilot-career-advisor
+    ports:
+      - "8008:8008"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      RETRIEVE_TOP_K: "8"
+    networks: [careerpilot-net]
+
+volumes:
+  mysql_data:
+  redis_data:
+  resume_uploads:
+
+networks:
+  careerpilot-net:
+    driver: bridge
