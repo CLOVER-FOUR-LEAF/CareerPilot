@@ -56,3 +56,18 @@ tmp/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ── Android ───────────────────────────────────────────────────
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+android/*.iml
+android/keystore.properties
+*.apk
+*.aab
+*.keystore
+# Gradle Wrapper 的 jar 必须入库（上面的 *.jar 规则要在此覆盖）
+!android/gradle/wrapper/gradle-wrapper.jar

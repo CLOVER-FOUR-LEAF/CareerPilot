@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 24 / 25 回退圆形图标 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:pathData="M24,0A24,24 0,1 1,24 48A24,24 0,1 1,24 0z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="48"
+                android:endY="48"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF667EEA" />
+                <item android:offset="1" android:color="#FF764BA2" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <group
+        android:scaleX="1.8"
+        android:scaleY="1.8"
+        android:translateX="2.4"
+        android:translateY="3.3">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M12,2L4.5,20.29l0.71,0.71L12,18l6.79,3 0.71,-0.71z" />
+    </group>
+</vector>
