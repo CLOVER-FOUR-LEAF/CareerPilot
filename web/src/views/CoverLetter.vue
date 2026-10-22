@@ -123,6 +123,21 @@ async function fetchJdList() {
   }
 }
 
+/**
+ * 取 JD 解析出的技能名。
+ *
+ * cover-letter-agent 靠 jd_skills 填技能段，前端不传，
+ * Agent 侧收到的就恒是空列表，正文只能落到「核心工程能力」的兜底文案（D1）。
+ */
+async function fetchJdSkills(jdId: number): Promise<string[]> {
+  try {
+    const res = await jdApi.getParseResult(jdId)
+    return (res.data?.skills ?? []).map((skill) => skill.name).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 async function handleSubmit() {
   const jobTitle = form.jobTitle.trim()
   if (!jobTitle) {
@@ -133,6 +148,7 @@ async function handleSubmit() {
   let jdId: string | null = null
   let jdText = ''
   let jdTitle = ''
+  let jdSkills: string[] = []
   if (form.jdId) {
     const selected = jds.value.find((item) => item.jdId === form.jdId)
     jdId = selected?.jdBizId ?? null
@@ -143,6 +159,7 @@ async function handleSubmit() {
     } catch {
       jdText = selected?.rawTextPreview || ''
     }
+    jdSkills = await fetchJdSkills(form.jdId)
   }
 
   const task = await polling.submit({
@@ -155,6 +172,8 @@ async function handleSubmit() {
       tone: form.tone,
       jd_id: jdId,
       jd_text: jdText,
+      // JD 技能名：不传则正文只能落到「核心工程能力」的兜底文案
+      jd_skills: jdSkills,
     },
   })
 

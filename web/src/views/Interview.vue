@@ -220,6 +220,21 @@ async function fetchOptions() {
   }
 }
 
+/**
+ * 取 JD 解析出的技能名。
+ *
+ * interview-agent 靠 jd_skills 决定出题主题、靠它做 evaluate 的技能命中检查，
+ * 前端不传，Agent 侧收到的就恒是空列表，出题只能落到「核心技术方案」的兜底文案（D1）。
+ */
+async function fetchJdSkills(jdId: number): Promise<string[]> {
+  try {
+    const res = await jdApi.getParseResult(jdId)
+    return (res.data?.skills ?? []).map((skill) => skill.name).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 /** 组装任务上下文：选了 JD 就带上全文，没选就只带简历 */
 async function buildContext(): Promise<Record<string, unknown>> {
   const selectedJd = jds.value.find((item) => item.jdId === form.jdId)
@@ -239,6 +254,8 @@ async function buildContext(): Promise<Record<string, unknown>> {
     } catch {
       context.jd_text = selectedJd?.rawTextPreview || ''
     }
+    // JD 技能名：出题主题与技能命中检查都依赖它，不传则两者恒为空
+    context.jd_skills = await fetchJdSkills(form.jdId)
   }
   if (form.resumeId) {
     context.resume_text = resumes.value.find((item) => item.resumeId === form.resumeId)?.title || ''

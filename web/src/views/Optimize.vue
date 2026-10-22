@@ -162,6 +162,21 @@ async function fetchJdList() {
   }
 }
 
+/**
+ * 取 JD 解析出的技能名。
+ *
+ * resume-optimizer-agent 靠 jd_skills 做技能注入，前端不传，
+ * Agent 侧收到的就恒是空列表，injected_skills 永远为空（D1）。
+ */
+async function fetchJdSkills(jdId: number): Promise<string[]> {
+  try {
+    const res = await jdApi.getParseResult(jdId)
+    return (res.data?.skills ?? []).map((skill) => skill.name).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 async function handleSubmit() {
   const original = form.original.trim()
   if (!original) {
@@ -171,6 +186,7 @@ async function handleSubmit() {
 
   let jdId: string | null = null
   let jdText = ''
+  let jdSkills: string[] = []
   if (form.jdId) {
     const selected = jds.value.find((item) => item.jdId === form.jdId)
     jdId = selected?.jdBizId ?? null
@@ -180,6 +196,7 @@ async function handleSubmit() {
     } catch {
       jdText = selected?.rawTextPreview || ''
     }
+    jdSkills = await fetchJdSkills(form.jdId)
   }
 
   const task = await polling.submit({
@@ -191,6 +208,8 @@ async function handleSubmit() {
       tone: form.tone,
       jd_id: jdId,
       jd_text: jdText,
+      // JD 技能名：Agent 靠它做技能注入，不传则 injected_skills 恒为空
+      jd_skills: jdSkills,
     },
   })
 
