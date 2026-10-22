@@ -110,8 +110,27 @@ CareerPilot/
 │   ├── cover-letter-agent/   8007
 │   └── career-advisor-agent/ 8008  RAG 行业知识库
 ├── web/                      Vue 前端
+├── android/                  ★ Android 原生客户端（Kotlin + Jetpack Compose）
 └── deploy/nginx/             Nginx 配置（可选，用静态产物模式时用）
 ```
+
+---
+
+## Android 客户端
+
+`android/` 下是一套**原生 Android 实现**（Kotlin + Jetpack Compose + Material 3），
+覆盖 Web 端的全部页面：登录注册、首页、简历管理、JD 解析、匹配打分、
+简历优化、模拟面试、求职信、职业规划、个人中心。
+
+**只做前端**：数据全部来自现有后端的 `/api/v1/**`，后端上服务器后
+在 App 内改一次服务器地址即可，不用重新打包。
+
+```powershell
+cd android
+.\gradlew.bat assembleRelease      # 产物：app\build\outputs\apk\release\app-release.apk
+```
+
+详见 [`android/README.md`](./android/README.md)。
 
 ---
 

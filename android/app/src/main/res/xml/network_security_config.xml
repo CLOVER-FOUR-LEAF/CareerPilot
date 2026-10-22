@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  开发期后端通常跑在局域网 / 本机，明文 HTTP 需要放行。
+  正式部署到公网域名后，建议把 base-config 的 cleartextTrafficPermitted 改成 false，
+  强制走 HTTPS。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
