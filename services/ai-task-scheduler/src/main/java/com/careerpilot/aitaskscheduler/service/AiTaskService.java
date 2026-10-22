@@ -3,6 +3,7 @@ package com.careerpilot.aitaskscheduler.service;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.careerpilot.aitaskscheduler.config.AgentProperties;
 import com.careerpilot.aitaskscheduler.config.AsyncConfig;
 import com.careerpilot.aitaskscheduler.dto.CallbackPayload;
@@ -12,6 +13,8 @@ import com.careerpilot.aitaskscheduler.entity.AgentInvocation;
 import com.careerpilot.aitaskscheduler.entity.AiTask;
 import com.careerpilot.aitaskscheduler.mapper.AgentInvocationMapper;
 import com.careerpilot.aitaskscheduler.mapper.AiTaskMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -58,6 +61,7 @@ public class AiTaskService {
     private final AgentProperties properties;
     private final TaskExecutor aiTaskExecutor;
     private final TaskExecutor sseScheduler;
+    private final ObjectMapper objectMapper;
 
     /** 同一任务内 Agent 调用序号。 */
     private final AtomicInteger invocationSeq = new AtomicInteger();
@@ -66,12 +70,14 @@ public class AiTaskService {
                          AgentInvocationMapper agentInvocationMapper,
                          WebClient webClient,
                          AgentProperties properties,
+                         ObjectMapper objectMapper,
                          @Qualifier(AsyncConfig.AI_TASK_EXECUTOR) TaskExecutor aiTaskExecutor,
                          @Qualifier("sseScheduler") TaskExecutor sseScheduler) {
         this.aiTaskMapper = aiTaskMapper;
         this.agentInvocationMapper = agentInvocationMapper;
         this.webClient = webClient;
         this.properties = properties;
+        this.objectMapper = objectMapper;
         this.aiTaskExecutor = aiTaskExecutor;
         this.sseScheduler = sseScheduler;
     }
@@ -139,6 +145,9 @@ public class AiTaskService {
             finishInvocation(invocation, "SUCCESS", outputJson, latency, null);
 
             AiTask done = new AiTask();
+            // updateById 按主键更新，id 为空会导致 WHERE id = null，命中 0 行，
+            // 任务状态会永远停在 PENDING。这里必须带上已查出来的实体主键。
+            done.setId(task.getId());
             done.setTaskId(taskId);
             done.setStatus("SUCCESS");
             done.setProgress(100);
@@ -380,6 +389,7 @@ public class AiTaskService {
 
     private void updateStatus(AiTask task, String status, int progress, LocalDateTime startedAt) {
         AiTask patch = new AiTask();
+        patch.setId(task.getId());
         patch.setTaskId(task.getTaskId());
         patch.setStatus(status);
         patch.setProgress(progress);
@@ -392,22 +402,31 @@ public class AiTaskService {
     }
 
     private void markFailed(String taskId, String message) {
-        AiTask patch = new AiTask();
-        patch.setTaskId(taskId);
-        patch.setStatus("FAILED");
-        patch.setErrorMessage(truncate(message, 2000));
-        patch.setCompletedAt(LocalDateTime.now());
-        patch.setUpdatedAt(LocalDateTime.now());
-        aiTaskMapper.updateById(patch);
+        // 这里手上只有 taskId（主键 id 未知），所以按 task_id 条件更新，
+        // 不能用 updateById —— 它只认主键，id 为空时命中 0 行。
+        aiTaskMapper.update(null, new LambdaUpdateWrapper<AiTask>()
+                .eq(AiTask::getTaskId, taskId)
+                .set(AiTask::getStatus, "FAILED")
+                .set(AiTask::getErrorMessage, truncate(message, 2000))
+                .set(AiTask::getCompletedAt, LocalDateTime.now())
+                .set(AiTask::getUpdatedAt, LocalDateTime.now()));
     }
 
-    /** 空串 / 非法 JSON 都要能安全返回空 Map，否则回调写库会炸。 */
-    private static Map<String, Object> parseInput(String json) {
+    /**
+     * 空串 / 非法 JSON 都要能安全返回空 Map，否则回调写库会炸。
+     *
+     * <p>这里必须用 Jackson 而不是 Hutool：Hutool 的 {@code toBean(Map.class)} 会把
+     * JSON 里的 null 原样保留成 {@code cn.hutool.json.JSONNull}，Jackson 序列化时
+     * 直接抛 "No serializer found for class cn.hutool.json.JSONNull"，
+     * 回调请求发不出去，业务表的状态就永远停在 PROCESSING。
+     * Jackson 解析出来的 null 是标准 Java null，序列化没有问题。
+     */
+    private Map<String, Object> parseInput(String json) {
         if (json == null || json.isBlank()) {
             return Map.of();
         }
         try {
-            return JSONUtil.parseObj(json).toBean(Map.class);
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
             return Map.of("_raw", json);
         }

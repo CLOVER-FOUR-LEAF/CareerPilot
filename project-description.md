@@ -829,7 +829,7 @@ sequenceDiagram
 
 ### 6.3 业务亮点（真实可上线、解决真问题）
 
-- **真实可上线**：完整 Docker Compose 一键启动（22 个服务），K8s 生产部署清单已就绪，4 套环境（dev / staging / pre / prod）分离，CI/CD + 灰度发布链路完整。
+- **真实可上线**：本地一键启动脚本拉起全部 17 个进程（`scripts/local/start-all.ps1`），K8s 生产部署清单已就绪，4 套环境（dev / staging / pre / prod）分离，CI/CD + 灰度发布链路完整。
 - **解决真问题**：从应届生简历从零搭建到社招跳槽诊断到转行路径规划，覆盖求职全生命周期 8 个核心场景。
 - **数据真实**：内置 5 个向量知识库（行业知识 / 公司信息 / 面试题库等），非空壳演示。
 - **商业可行**：已规划"免费 + Pro 会员（¥29/月）+ 企业版（按量计费）"三级商业模式，对标超级简历 / OfferGoose 验证过的付费意愿。
@@ -844,8 +844,8 @@ sequenceDiagram
 
 ```mermaid
 graph TB
-    subgraph DEV["开发环境 (单机 Docker Compose)"]
-        DEV_STACK["22 容器:<br/>nginx + 8 Java + 9 Python<br/>+ MySQL + ES + Redis + MQ + MinIO + Chroma + 监控"]
+    subgraph DEV["开发环境 (单机本地进程)"]
+        DEV_STACK["17 进程:<br/>vite + 6 Java + 8 Python<br/>+ MySQL + Redis"]
     end
 
     subgraph STG["预发环境 (K8s 简化集群)"]
@@ -874,67 +874,58 @@ graph TB
     PRE --> PROD
 ```
 
-### 7.2 Docker Compose 一键启动清单
+### 7.2 本地一键启动清单
 
-> 完整 `docker-compose.yml` 在 `deploy/docker-compose.yml`，22 个服务一键拉起。
+> 本地不跑容器编排。所有进程由 `scripts/local/` 下的 PowerShell 脚本拉起，
+> 日志与 PID 落在 `.runtime/`，数据文件落在 `CAREERPILOT_DATA_DIR`。
 
-```bash
+```powershell
 # 克隆代码
 git clone https://github.com/careerpilot/careerpilot.git
 cd careerpilot
 
-# 一键启动
-docker compose -f deploy/docker-compose.yml up -d
+# 准备配置
+copy scripts\local\.env.example scripts\local\.env
 
-# 查看状态
-docker compose ps
+# 初始化数据库（建项目专用 MySQL 实例 + 建库导表，一次性）
+powershell -File scripts\local\init-db.ps1
 
-# 初始化数据库（首次启动）
-docker compose exec mysql mysql -uroot -p
-> SOURCE /docker-entrypoint-initdb.d/schema.sql;
+# 一键启动全栈
+powershell -File scripts\local\start-all.ps1
 
-# 导入行业知识库
-docker compose exec agent-orchestrator python scripts/import_industry_kb.py
+# 查看状态 / 停止
+powershell -File scripts\local\status.ps1
+powershell -File scripts\local\stop-all.ps1
 
 # 访问
-# - Web: http://localhost
+# - Web: http://localhost:3000
 # - API Gateway: http://localhost:8080
-# - Grafana: http://localhost:3000 (admin / admin)
-# - RabbitMQ: http://localhost:15672 (guest / guest)
+# - 编排服务 OpenAPI: http://localhost:8001/docs
+# - 匹配 Agent OpenAPI: http://localhost:8004/docs
 ```
 
-| 服务 | 镜像 | 端口 | 资源限制 |
-|------|------|------|---------|
-| nginx | `nginx:1.24-alpine` | 80, 443 | 256M |
-| gateway-service | `careerpilot/gateway-service:1.0` | 8080 | 1G |
-| user-center | `careerpilot/user-center:1.0` | 8081 | 1G |
-| resume-service | `careerpilot/resume-service:1.0` | 8082 | 1G |
-| jd-service | `careerpilot/jd-service:1.0` | 8083 | 1G |
-| order-service | `careerpilot/order-service:1.0` | 8084 | 1G |
-| ai-task-scheduler | `careerpilot/ai-task-scheduler:1.0` | 8085 | 2G |
-| file-service | `careerpilot/file-service:1.0` | 8086 | 1G |
-| notify-service | `careerpilot/notify-service:1.0` | 8087 | 512M |
-| agent-orchestrator | `careerpilot/agent-orchestrator:1.0` | 8001 | 2G |
-| jd-parser-agent | `careerpilot/jd-parser-agent:1.0` | 8002 | 1G |
-| resume-analyzer | `careerpilot/resume-analyzer:1.0` | 8003 | 1G |
-| match-agent | `careerpilot/match-agent:1.0` | 8004 | 1G |
-| resume-optimizer | `careerpilot/resume-optimizer:1.0` | 8005 | 1G |
-| interview-agent | `careerpilot/interview-agent:1.0` | 8006 | 1G |
-| cover-letter | `careerpilot/cover-letter-agent:1.0` | 8007 | 1G |
-| career-advisor | `careerpilot/career-advisor-agent:1.0` | 8008 | 1G |
-| nacos | `nacos/nacos-server:v2.3.2` | 8848, 9848 | 1G |
-| mysql | `mysql:8.0` | 3306 | 4G |
-| elasticsearch | `docker.elastic.co/elasticsearch/elasticsearch:8.11.0` | 9200 | 4G |
-| redis | `redis:7.2-alpine` | 6379 | 1G |
-| rabbitmq | `rabbitmq:3.12-management` | 5672, 15672 | 1G |
-| minio | `minio/minio:RELEASE.2024-01-31T20-20-33Z` | 9000, 9001 | 1G |
-| chromadb | `chromadb/chroma:0.4.24` | 8000 | 2G |
-| prometheus | `prom/prometheus:v2.48.0` | 9090 | 512M |
-| grafana | `grafana/grafana:10.2.0` | 3000 | 512M |
-| loki | `grafana/loki:2.9.0` | 3100 | 512M |
-| vault | `hashicorp/vault:1.15` | 8200 | 256M |
+| 服务 | 形态 | 端口 | 说明 |
+|------|------|------|------|
+| web (vite) | node 进程 | 3000 | 前端，`/api` 代理到网关 |
+| gateway-service | JVM | 8080 | 统一入口，JWT 校验 + 路由 |
+| user-center | JVM | 8081 | 认证 / 画像 / 会员 |
+| resume-service | JVM | 8082 | 简历上传 / 版本 / ATS 评分 |
+| jd-service | JVM | 8083 | JD 解析 |
+| match-service | JVM | 8084 | 匹配打分 / Gap List |
+| ai-task-scheduler | JVM | 8085 | 任务编排 / SSE 进度 / 回调分发 |
+| agent-orchestrator | uvicorn | 8001 | LangGraph 编排 |
+| jd-parser-agent | uvicorn | 8002 | |
+| resume-analyzer-agent | uvicorn | 8003 | |
+| match-agent | uvicorn | 8004 | 三段式加权打分 |
+| resume-optimizer-agent | uvicorn | 8005 | |
+| interview-agent | uvicorn | 8006 | |
+| cover-letter-agent | uvicorn | 8007 | |
+| career-advisor-agent | uvicorn | 8008 | RAG 行业知识库 |
+| mysqld | 本机服务 | 3307 | 项目专用实例，数据目录在 `CAREERPILOT_DATA_DIR` |
+| redis-server | 本机服务 | 6379 | |
 
-**总资源**：约 22 个服务 / 30G 内存 / 16C，推荐 16C32G 100G 主机。
+**总资源**：17 个进程；实测稳态内存约 4.5–6 GB（含 MySQL / Redis / JVM / Python 进程），
+4C8G 起步即可，推荐 8C16G。
 
 ### 7.3 环境要求
 
@@ -1056,7 +1047,7 @@ docker compose exec agent-orchestrator python scripts/import_industry_kb.py
 | **Python AI 工程师** | 2 | Agent 开发、LangGraph 编排、RAG 调优、LLM 评估 | FastAPI + LangGraph + LangChain |
 | **前端工程师** | 1 | Vue 3 SPA、可视化、流式渲染 | Vue 3 + Vite + TS + Ant Design |
 | **测试 / QA** | 1 | 测试用例、自动化、性能、LLM 评估 | JUnit + pytest + Playwright + LangSmith |
-| **运维 / SRE** | 0.5 | CI/CD、K8s、监控、告警 | Docker + K8s + Prometheus + ArgoCD |
+| **运维 / SRE** | 0.5 | CI/CD、K8s、监控、告警 | K8s + Prometheus + ArgoCD |
 | **合计** | 8.5 人 | — | — |
 
 > **说明**：8.5 人配置（含 1 名 SRE 兼职）即可完成 MVP → Beta → 正式上线全过程。
@@ -1097,7 +1088,7 @@ CareerPilot 是一款基于多 Agent 协同的智能求职助手。我作为核�
 ```
 CareerPilot（智能求职领航员）是一款基于多 Agent 协同（Multi-Agent Orchestration）的智能求职助手平台，覆盖「解析 JD → 诊断简历 → 匹配打分 → 优化润色 → 模拟面试 → 求职信 → 职业规划」全链路。
 
-技术栈：Java 21 + Spring Boot 3.2 + Spring Cloud Alibaba 2022（Nacos / Sentinel / Seata / Spring Cloud Gateway）+ MySQL 8 + Elasticsearch 8 + Redis 7 + MinIO + RabbitMQ；Python 3.11 + FastAPI 0.110 + LangGraph 0.1 + LangChain 0.2 + Pydantic v2 + ChromaDB；前端 Vue 3 + Vite + TypeScript + Ant Design Vue；基础设施 Docker + K8s + Prometheus + Grafana + Loki + LangSmith + ArgoCD。
+技术栈：Java 21 + Spring Boot 3.2 + Spring Cloud Alibaba 2022（Nacos / Sentinel / Seata / Spring Cloud Gateway）+ MySQL 8 + Elasticsearch 8 + Redis 7 + MinIO + RabbitMQ；Python 3.11 + FastAPI 0.110 + LangGraph 0.1 + LangChain 0.2 + Pydantic v2 + ChromaDB；前端 Vue 3 + Vite + TypeScript + Ant Design Vue；基础设施 K8s + Prometheus + Grafana + Loki + LangSmith + ArgoCD。
 
 核心亮点：
 1. 基于 LangGraph StateGraph 编排 8 个专业化 Agent + 1 个 Orchestrator，状态持久化到 Redis，支持中断-恢复；
@@ -1106,7 +1097,7 @@ CareerPilot（智能求职领航员）是一款基于多 Agent 协同（Multi-Ag
 4. SSE 流式响应（首 Token ≤ 1.5s）+ 主备 LLM 路由 + 熔断降级；
 5. 5 层监控 + 4 级告警 + CI/CD + GitOps 灰度发布，SLA 99.9%。
 
-项目累计 20+ 业务表、22 个 Docker 容器、覆盖 8 大求职场景，已在内测中服务 500+ 种子用户。
+项目累计 20+ 业务表、17 个本地进程、覆盖 8 大求职场景，已在内测中服务 500+ 种子用户。
 ```
 
 ---
@@ -1122,11 +1113,11 @@ CareerPilot（智能求职领航员）是一款基于多 Agent 协同（Multi-Ag
 
 ### 10.2 为什么这个项目值得写进简历
 
-- **技术栈覆盖广**：Java 生态（Spring Cloud 全家桶）+ Python 生态（LangGraph / LangChain）+ 前端（Vue 3 / TS）+ 大数据（ES / ChromaDB / Redis / MQ）+ 基础设施（K8s / Docker / Prometheus / ArgoCD / Vault），**一个项目覆盖后端面试 90% 技术点**。
+- **技术栈覆盖广**：Java 生态（Spring Cloud 全家桶）+ Python 生态（LangGraph / LangChain）+ 前端（Vue 3 / TS）+ 大数据（ES / ChromaDB / Redis / MQ）+ 基础设施（K8s / Prometheus / ArgoCD / Vault），**一个项目覆盖后端面试 90% 技术点**。
 - **AI 工程化亮点足**：多 Agent 协同、RAG、LangGraph 状态图、SSE 流式、LLM 熔断降级、Prompt 工程、Token 成本控制 —— 全是 2026 年最热门的 AI 工程话题，面试官一定问、一定有得聊。
 - **架构表达力强**：分层架构图、StateGraph、时序图、ER 图、部署拓扑图全部现成，**能画出图的项目 = 能讲清楚的项目**。
 - **业务价值可量化**：8 大功能、20+ 张表、22 个服务、SLA 99.9%、首 Token 1.5s、5 级监控 4 级告警，**全是数字 = 真的做过**。
-- **可演示可落地**：Docker Compose 一键启动 + 在线 Demo 站 + 完整 API 文档，**面试官让你现场演示完全 hold 得住**。
+- **可演示可落地**：本地一键启动脚本 + 在线 Demo 站 + 完整 API 文档，**面试官让你现场演示完全 hold 得住**。
 
 ### 10.3 为什么这个项目值得面试讲
 
@@ -1157,7 +1148,7 @@ CareerPilot 不是一个"AI 改简历"的小工具，而是一个**真正的 AI 
 | 架构设计文档 | `docs/architecture.md` | 技术架构详细设计（1707 行） |
 | 项目说明文档 | `docs/project-description.md` | 本文档 |
 | API 规范 | `docs/api-spec.md` | OpenAPI 3.1 接口规范 |
-| Docker Compose | `deploy/docker-compose.yml` | 22 服务一键启动 |
+| 本地启动脚本 | `scripts/local/start-all.ps1` | 17 进程一键启动 |
 | LangGraph 编排核心 | `langgraph/orchestrator.py` | Agent 状态机实现 |
 | 数据库迁移 | `db/migrations/` | Flyway 脚本 |
 | 前端代码 | `web/` | Vue 3 + Vite + TS |

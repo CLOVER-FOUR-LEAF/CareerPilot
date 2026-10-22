@@ -229,64 +229,58 @@ graph TB
 
 ### 2.3 部署拓扑图
 
-#### 2.3.1 Docker Compose 单机部署（开发 / Demo）
+#### 2.3.1 本地单机部署（开发 / Demo）
+
+> 不使用容器编排。所有进程直接跑在开发机上：Java 微服务是 JVM 进程，
+> Python Agent 是 uvicorn 进程，MySQL / Redis 是本机服务实例。
+> 启动与停止统一由 `scripts/local/` 下的 PowerShell 脚本负责。
 
 ```mermaid
 graph LR
-    subgraph HOST["单机服务器 (16C32G 100G)"]
-        NGINX_C["nginx:1.24-alpine<br/>:80 :443"]
-        GW_C["gateway-service:1.0<br/>:8080"]
-        UC_C["user-center:1.0<br/>:8081"]
-        RS_C["resume-service:1.0<br/>:8082"]
-        JS_C["jd-service:1.0<br/>:8083"]
-        OS_C["order-service:1.0<br/>:8084"]
-        AS_C["ai-task-scheduler:1.0<br/>:8085"]
-        FS_C["file-service:1.0<br/>:8086"]
-        AO_C["agent-orchestrator:1.0<br/>:8001"]
-        AGENTS_C["jd/ra/ma/ro/ia/cl/ca<br/>:8002-8008"]
-        MYSQL_C[("mysql:8.0<br/>:3306")]
-        ES_C[("elasticsearch:8.11<br/>:9200")]
-        REDIS_C[("redis:7.2<br/>:6379")]
-        CHROMA_C[("chromadb:0.4<br/>:8000")]
-        MINIO_C[("minio:RELEASE.2024<br/>:9000 :9001")]
-        MQ_C[("rabbitmq:3.12<br/>:5672 :15672")]
+    subgraph HOST["开发机 (Windows / macOS / Linux)"]
+        WEB["vite dev server<br/>:3000"]
+        GW_C["gateway-service<br/>JVM :8080"]
+        UC_C["user-center<br/>JVM :8081"]
+        RS_C["resume-service<br/>JVM :8082"]
+        JS_C["jd-service<br/>JVM :8083"]
+        MS_C["match-service<br/>JVM :8084"]
+        AS_C["ai-task-scheduler<br/>JVM :8085"]
+        AO_C["agent-orchestrator<br/>uvicorn :8001"]
+        AGENTS_C["jd/ra/ma/ro/ia/cl/ca<br/>uvicorn :8002-8008"]
+        MYSQL_C[("mysqld<br/>:3307")]
+        REDIS_C[("redis-server<br/>:6379")]
     end
 
-    NGINX_C --> GW_C
+    WEB -->|/api/v1/**| GW_C
     GW_C --> UC_C
     GW_C --> RS_C
     GW_C --> JS_C
-    GW_C --> OS_C
+    GW_C --> MS_C
     GW_C --> AS_C
-    GW_C --> FS_C
     AS_C -->|HTTP| AO_C
     AO_C --> AGENTS_C
     UC_C --> MYSQL_C
     RS_C --> MYSQL_C
     JS_C --> MYSQL_C
-    OS_C --> MYSQL_C
+    MS_C --> MYSQL_C
     AS_C --> MYSQL_C
-    FS_C --> MYSQL_C
-    AO_C --> MQ_C
-    AS_C --> MQ_C
-    RS_C --> ES_C
-    JS_C --> ES_C
     GW_C --> REDIS_C
     UC_C --> REDIS_C
     RS_C --> REDIS_C
     JS_C --> REDIS_C
+    MS_C --> REDIS_C
     AS_C --> REDIS_C
-    RA_C2[RA] --> CHROMA_C
-    RO_C2[RO] --> CHROMA_C
-    CA_C2[CA] --> CHROMA_C
-    FS_C --> MINIO_C
-    RS_C --> MINIO_C
 ```
 
 > **关键设计点**：
-> - **端口规划**：网关 8080，Java 微服务 8081-8086，Python AI 8001-8008，中间件使用标准端口。
-> - **资源限制**：MySQL 4G、ES 4G、ChromaDB 2G、单 Java 服务 1G、Python Agent 各 512M；总和约 22G，16C32G 主机可承载。
-> - **网络**：所有服务加入 `careerpilot-net` 自定义 bridge 网络，统一通过 `careerpilot.local` 域名互通。
+> - **端口规划**：网关 8080，Java 微服务 8081-8085，Python AI 8001-8008，中间件使用标准端口。
+> - **MySQL 端口**：本地默认用 **3307**（项目专用实例），避免与开发机上已有的 3306 冲突；
+>   想复用现有实例，改 `scripts/local/.env` 里的 `MYSQL_PORT` 即可。
+> - **数据目录**：MySQL 数据文件、Redis 持久化文件、简历附件统一落在 `CAREERPILOT_DATA_DIR`（默认 `D:\CareerPilotData`），
+>   不进仓库。
+> - **进程管理**：`scripts/local/start-all.ps1` 一键拉起，`stop-all.ps1` 一键停止；
+>   日志与 PID 落在 `.runtime/`。
+> - **互通方式**：全部走 `127.0.0.1`，不需要自定义网络与内部 DNS。
 
 #### 2.3.2 K8s 演进（生产）
 
@@ -443,7 +437,7 @@ graph LR
 | 向量库客户端 | chromadb | 0.4 |
 | 任务队列 | aio-pika（RabbitMQ 异步） | 9.4 |
 | 可观测 | LangSmith + OpenTelemetry | — |
-| 工具沙箱 | RestrictedPython + Docker SDK | — |
+| 工具沙箱 | RestrictedPython + 独立子进程 | — |
 
 ---
 
@@ -1575,66 +1569,54 @@ graph LR
 
 ## 9. 部署架构
 
-### 9.1 Docker Compose 服务清单
+### 9.1 本地服务清单
 
-> 完整 `docker-compose.yml` 见 `deploy/docker-compose.yml`，核心节选：
+> 本地不跑容器编排，所有进程由 `scripts/local/` 的脚本拉起。
+> 下面这份清单与 `scripts/local/status.ps1` 的输出一一对应。
 
-```yaml
-version: '3.9'
-services:
-  nginx:
-    image: nginx:1.24-alpine
-    ports: ["80:80", "443:443"]
-    volumes: ["./nginx/conf.d:/etc/nginx/conf.d", "./nginx/certs:/etc/nginx/certs"]
-    depends_on: [gateway-service]
+| 组件 | 形态 | 端口 | 启动脚本 |
+|------|------|------|----------|
+| gateway-service | JVM | 8080 | `start-services.ps1` |
+| user-center | JVM | 8081 | `start-services.ps1` |
+| resume-service | JVM | 8082 | `start-services.ps1` |
+| jd-service | JVM | 8083 | `start-services.ps1` |
+| match-service | JVM | 8084 | `start-services.ps1` |
+| ai-task-scheduler | JVM | 8085 | `start-services.ps1` |
+| agent-orchestrator | uvicorn | 8001 | `start-agents.ps1` |
+| jd-parser-agent | uvicorn | 8002 | `start-agents.ps1` |
+| resume-analyzer-agent | uvicorn | 8003 | `start-agents.ps1` |
+| match-agent | uvicorn | 8004 | `start-agents.ps1` |
+| resume-optimizer-agent | uvicorn | 8005 | `start-agents.ps1` |
+| interview-agent | uvicorn | 8006 | `start-agents.ps1` |
+| cover-letter-agent | uvicorn | 8007 | `start-agents.ps1` |
+| career-advisor-agent | uvicorn | 8008 | `start-agents.ps1` |
+| web (vite) | node | 3000 | `start-frontend.ps1` |
+| mysqld | 本机服务 | 3307 | `init-db.ps1` / `start-infra.ps1` |
+| redis-server | 本机服务 | 6379 | `start-infra.ps1` |
 
-  gateway-service:
-    image: careerpilot/gateway-service:1.0
-    ports: ["8080:8080"]
-    environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - NACOS_SERVER=service-registry:8848
-    depends_on: [service-registry]
+关键环境变量（统一由 `scripts/local/.env` 提供）：
 
-  user-center:        { image: careerpilot/user-center:1.0,       ports: ["8081:8081"] }
-  resume-service:     { image: careerpilot/resume-service:1.0,    ports: ["8082:8082"] }
-  jd-service:         { image: careerpilot/jd-service:1.0,        ports: ["8083:8083"] }
-  order-service:      { image: careerpilot/order-service:1.0,     ports: ["8084:8084"] }
-  ai-task-scheduler:  { image: careerpilot/ai-task-scheduler:1.0, ports: ["8085:8085"] }
-  file-service:       { image: careerpilot/file-service:1.0,      ports: ["8086:8086"] }
-  notify-service:     { image: careerpilot/notify-service:1.0,    ports: ["8087:8087"] }
+```dotenv
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3307          # 项目专用实例，避开已有的 3306
+MYSQL_USER=careerpilot
+MYSQL_PASSWORD=cp123456
 
-  agent-orchestrator: { image: careerpilot/agent-orchestrator:1.0, ports: ["8001:8001"] }
-  jd-parser-agent:    { image: careerpilot/jd-parser-agent:1.0,    ports: ["8002:8002"] }
-  resume-analyzer:    { image: careerpilot/resume-analyzer:1.0,    ports: ["8003:8003"] }
-  match-agent:        { image: careerpilot/match-agent:1.0,        ports: ["8004:8004"] }
-  resume-optimizer:   { image: careerpilot/resume-optimizer:1.0,   ports: ["8005:8005"] }
-  interview-agent:    { image: careerpilot/interview-agent:1.0,    ports: ["8006:8006"] }
-  cover-letter:       { image: careerpilot/cover-letter-agent:1.0, ports: ["8007:8007"] }
-  career-advisor:     { image: careerpilot/career-advisor-agent:1.0, ports: ["8008:8008"] }
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=redis123456
 
-  service-registry: { image: nacos/nacos-server:v2.3.2, ports: ["8848:8848", "9848:9848"] }
-  mysql:            { image: mysql:8.0,                ports: ["3306:3306"], volumes: ["mysql_data:/var/lib/mysql"] }
-  elasticsearch:    { image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0, ports: ["9200:9200"] }
-  redis:            { image: redis:7.2-alpine,         ports: ["6379:6379"] }
-  rabbitmq:         { image: rabbitmq:3.12-management, ports: ["5672:5672", "15672:15672"] }
-  minio:            { image: minio/minio:RELEASE.2024-01-31T20-20-33Z, ports: ["9000:9000", "9001:9001"] }
-  chromadb:         { image: chromadb/chroma:0.4.24,   ports: ["8000:8000"], volumes: ["chroma_data:/chroma/chroma"] }
-  prometheus:       { image: prom/prometheus:v2.48.0,   ports: ["9090:9090"] }
-  grafana:          { image: grafana/grafana:10.2.0,    ports: ["3000:3000"] }
-  loki:             { image: grafana/loki:2.9.0,        ports: ["3100:3100"] }
-  vault:            { image: hashicorp/vault:1.15,      ports: ["8200:8200"] }
-
-volumes:
-  mysql_data:
-  chroma_data:
+AI_ORCHESTRATOR_URL=http://localhost:8001
+AI_SCHEDULER_URL=http://localhost:8085
+RESUME_SERVICE_URL=http://localhost:8082
+JD_SERVICE_URL=http://localhost:8083
 ```
 
 ### 9.2 环境分层
 
 | 环境 | 用途 | 域名 | 资源 | 数据 |
 |------|------|------|------|------|
-| **dev** | 开发自测 | dev.careerpilot.local | 单机 Compose | 脱敏样例 |
+| **dev** | 开发自测 | dev.careerpilot.local | 单机本地进程 | 脱敏样例 |
 | **staging** | 集成测试 + 预发验证 | staging.careerpilot.com | 1 套简化 K8s | 脱敏副本 |
 | **pre** | 灰度（5% 流量） | pre.careerpilot.com | K8s（和生产同规格） | 脱敏 |
 | **prod** | 生产 | api.careerpilot.com | K8s 多 AZ | 真实数据 |
@@ -1646,7 +1628,7 @@ graph LR
     DEV[开发者 Push] --> CI[GitHub Actions]
     CI --> UNIT[单元测试]
     UNIT --> LINT[Lint + 类型检查]
-    LINT --> BUILD[构建 Docker 镜像]
+    LINT --> BUILD[构建可执行产物<br/>jar + 前端 dist]
     BUILD --> IMAGE[推送阿里云 ACR]
     IMAGE --> DEV_DEPLOY[自动部署到 dev]
     DEV_DEPLOY --> MANUAL[手动触发 staging]
@@ -1725,6 +1707,6 @@ graph LR
 > **本文档配套交付**：
 > - `docs/project-brief.md` — 项目说明文档（产品视角）
 > - `docs/api-spec.md` — OpenAPI 3.1 接口规范
-> - `deploy/docker-compose.yml` — 一键启动编排
-> - `langgraph/orchestrator.py` — Agent 编排核心实现
+> - `scripts/local/` — 本地一键启动编排（无容器）
+> - `agents/agent-orchestrator/app/graph.py` — Agent 编排核心实现
 > - `db/migrations/` — Flyway 数据库迁移脚本

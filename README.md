@@ -9,7 +9,7 @@
 
 ```
                        ┌──────────────┐
-   浏览器  ───────────▶ │    Nginx     │  静态资源 + 反向代理
+   浏览器  ───────────▶ │ Vite / Nginx│  前端静态资源 + 反向代理
                        └──────┬───────┘
                               │ /api/v1/**
                        ┌──────▼───────┐
@@ -90,7 +90,9 @@
 CareerPilot/
 ├── docs/API-CONTRACT.md      ★ 三方共同遵守的接口契约，改接口先改它
 ├── db/migrations/            MySQL 初始化 Schema（唯一事实来源）
-├── scripts/verify_contract.py 契约一致性检查（前后端 / Agent 字段名）
+├── scripts/
+│   ├── verify_contract.py    契约一致性检查（前后端 / Agent 字段名）
+│   └── local/                ★ 本地运行脚本（见下）
 ├── services/                 Java 微服务
 │   ├── gateway-service/      8080
 │   ├── user-center/          8081  认证 / 画像 / 会员
@@ -108,69 +110,87 @@ CareerPilot/
 │   ├── cover-letter-agent/   8007
 │   └── career-advisor-agent/ 8008  RAG 行业知识库
 ├── web/                      Vue 前端
-└── deploy/                   docker-compose + nginx
+└── deploy/nginx/             Nginx 配置（可选，用静态产物模式时用）
 ```
 
 ---
 
 ## 本地启动
 
+**不依赖 Docker。** 全部进程直接跑在本机：MySQL / Redis 是本机服务，
+6 个 Java 微服务是 JVM 进程，8 个 Python Agent 是 uvicorn 进程，前端是 vite dev server。
+
 ### 0. 前置
 
-- JDK 21+（本项目在 JDK 25 上验证通过）
-- Maven 3.9+
-- Node 20+
-- Python 3.11+
-- Docker + Docker Compose
+| 依赖 | 版本 | 说明 |
+|------|------|------|
+| JDK | 21+ | 编译目标 Java 21；Lombok 必须 ≥ 1.40 |
+| Maven | 3.9+ | |
+| Node.js | 20+ | |
+| Python | 3.11+ | 建议 3.12 |
+| MySQL | 8.x | 只用 `mysqld` / `mysql` 两个可执行文件即可 |
+| Redis | 7.x | Windows 版可用 <https://github.com/redis-windows/redis-windows/releases> |
 
-### 1. 一键起全栈
+### 1. 配置
 
-```bash
-cd deploy
-cp .env.example .env       # 可选：覆盖端口、密码、JWT_SECRET
-docker compose up -d --build
+```powershell
+copy scripts\local\.env.example scripts\local\.env
 ```
+
+按需修改。默认配置会：
+
+- 在 **3307** 端口起一个**项目专用的 MySQL 实例**（数据目录 `D:\CareerPilotData\mysql`），
+  不占用你机器上已有的 3306；
+- 在 6379 起 Redis；
+- 业务账号 `careerpilot` / `cp123456`。
+
+> 想改用你现有的 MySQL？把 `.env` 里的 `MYSQL_PORT` 改成 `3306`，
+> 再把 `MYSQL_USER` / `MYSQL_PASSWORD` 改成该实例上真实存在的账号即可。
+
+### 2. 初始化数据库（一次性）
+
+```powershell
+powershell -File scripts\local\init-db.ps1
+```
+
+会做四件事：初始化数据目录 → 启动 mysqld → 建库建账号 → 导入
+`db/migrations/V1__init_schema.sql`（20 张表）。**幂等**，重复执行不会重复建表。
+
+### 3. 一键起全栈
+
+```powershell
+powershell -File scripts\local\start-all.ps1
+```
+
+顺序：基础设施 → Python 环境 → Agent 层 → Java 微服务 → 前端。
+首次运行会自动装 Python 依赖和构建 jar（合计十几分钟），之后都是秒级启动。
 
 启动后：
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost | 前端（经 Nginx） |
+| http://localhost:3000 | 前端 |
 | http://localhost:8080 | 网关直连 |
+| http://localhost:8080/actuator/health | 健康检查 |
 | http://localhost:8001/docs | 编排服务 OpenAPI |
 | http://localhost:8004/docs | 匹配 Agent OpenAPI |
 
-> 数据库初始化脚本只在 **数据卷为空**（首次 `up`）时执行。
-> 改了 `db/migrations/V1__init_schema.sql` 之后要重来：
-> `docker compose down -v && docker compose up -d --build`。
+### 4. 分步启动 / 状态 / 停止
 
-### 2. 分开启动（开发模式）
-
-```bash
-# ── 基础设施 ─────────────────────────────────
-cd deploy && docker compose up -d mysql redis
-
-# ── Java 微服务（每个新开一个终端）────────────
-cd services && mvn clean package -DskipTests
-java -jar services/user-center/target/user-center-1.0.0-SNAPSHOT.jar
-java -jar services/resume-service/target/resume-service-1.0.0-SNAPSHOT.jar
-java -jar services/jd-service/target/jd-service-1.0.0-SNAPSHOT.jar
-java -jar services/match-service/target/match-service-1.0.0-SNAPSHOT.jar
-java -jar services/ai-task-scheduler/target/ai-task-scheduler-1.0.0-SNAPSHOT.jar
-java -jar services/gateway-service/target/gateway-service-1.0.0-SNAPSHOT.jar
-
-# ── Python Agent 层（每个新开一个终端）────────
-cd agents/match-agent && pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8004
-# 其余 7 个 Agent 同理，端口见上表
-
-# ── 前端 ────────────────────────────────────
-cd web && npm install && npm run dev      # http://localhost:3000
+```powershell
+powershell -File scripts\local\setup-python-envs.ps1   # 8 个 Agent 的 venv + 依赖
+powershell -File scripts\local\build-services.ps1      # mvn clean package
+powershell -File scripts\local\start-infra.ps1        # MySQL + Redis
+powershell -File scripts\local\start-agents.ps1        # 8 个 Python Agent
+powershell -File scripts\local\start-services.ps1      # 6 个 Java 微服务
+powershell -File scripts\local\start-frontend.ps1     # 前端
+powershell -File scripts\local\status.ps1             # 状态总览
+powershell -File scripts\local\stop-all.ps1           # 一键停止
 ```
 
-`vite.config.ts` 已配好 `/api` → `http://localhost:8080` 的代理，前端无需额外配置。
+进程日志统一在 `.runtime/logs/`，PID 在 `.runtime/*.pid`（都已在 `.gitignore` 里）。
 
-### 3. 不配 LLM 也能跑
+### 5. 不配 LLM 也能跑
 
 所有 Agent 的**规则引擎是主实现**，完整的；`OPENAI_API_KEY` 为空时自动跳过 LLM 增强。
 `career-advisor-agent` 刻意完全不调 LLM —— 让模型改写 roadmap 会导致引用与 `doc_ids` 脱节，
@@ -181,17 +201,18 @@ cd web && npm install && npm run dev      # http://localhost:3000
 ## 配置项
 
 所有配置都支持环境变量覆盖，默认值见各服务的 `application.yml`。
+本地运行统一由 `scripts/local/.env` 提供，启动脚本会把它导出到各子进程。
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `MYSQL_HOST` / `MYSQL_PORT` | `localhost` / `3306` | |
+| `MYSQL_HOST` / `MYSQL_PORT` | `localhost` / `3306` | 本地脚本默认用 3307（项目专用实例） |
 | `MYSQL_USER` / `MYSQL_PASSWORD` | `careerpilot` / `cp123456` | |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | `localhost` / `6379` / `redis123456` | |
 | `JWT_SECRET` | 内置默认值 | **生产必须覆盖** |
 | `AI_SCHEDULER_URL` | `http://localhost:8085` | 业务服务建任务用 |
 | `AI_ORCHESTRATOR_URL` | `http://localhost:8001` | 调度服务调 Agent 用 |
 | `RESUME_SERVICE_URL` / `JD_SERVICE_URL` | `http://localhost:8082` / `:8083` | match-service 取素材用 |
-| `STORAGE_ROOT` | `./data/uploads` | 简历文件存储根目录 |
+| `STORAGE_ROOT` | `./data/uploads` | 简历文件存储根目录，本地脚本改为数据目录下的 `uploads` |
 | `OPENAI_API_KEY` | 空 | 为空则纯规则引擎 |
 | `MATCH_AGENT_URL` 等 | `http://localhost:8004` … | orchestrator 分发用 |
 

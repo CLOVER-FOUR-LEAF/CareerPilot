@@ -3,7 +3,6 @@ package com.careerpilot.matchservice.client;
 import cn.hutool.json.JSONUtil;
 import com.careerpilot.matchservice.config.CareerPilotProperties;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -21,11 +20,21 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class MatchSourceClient {
 
     private final RestClient restClient;
     private final CareerPilotProperties properties;
+
+    /**
+     * 注入 {@code RestClient.Builder} 而不是 {@code RestClient}：
+     * Spring Boot 只自动装配 Builder，裸的 RestClient 没有默认 Bean，
+     * 直接注入会导致启动期 UnsatisfiedDependencyException。
+     * 写法与 jd-service / resume-service 的 AiTaskClient 保持一致。
+     */
+    public MatchSourceClient(RestClient.Builder builder, CareerPilotProperties properties) {
+        this.restClient = builder.build();
+        this.properties = properties;
+    }
 
     /** 简历素材。 */
     @Data

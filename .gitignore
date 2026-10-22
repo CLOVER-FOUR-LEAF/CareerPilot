@@ -43,9 +43,13 @@ venv/
 # ── 日志与运行时产物 ───────────────────────────────────────────
 logs/
 *.log
-data/
-uploads/
 tmp/
+.runtime/
+# 运行时数据目录只锚定仓库根与各服务目录，
+# 不能用裸 data/ —— 那会把 agents/career-advisor-agent/data/（内置知识库）也排除掉
+/data/
+services/*/data/
+uploads/
 
 # ── 本地数据库与缓存 ───────────────────────────────────────────
 *.sql.gz
@@ -56,3 +60,18 @@ tmp/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ── Android ───────────────────────────────────────────────────
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+android/*.iml
+android/keystore.properties
+*.apk
+*.aab
+*.keystore
+# Gradle Wrapper 的 jar 必须入库（上面的 *.jar 规则要在此覆盖）
+!android/gradle/wrapper/gradle-wrapper.jar

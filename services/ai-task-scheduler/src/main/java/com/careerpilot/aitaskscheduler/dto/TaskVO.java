@@ -2,6 +2,8 @@ package com.careerpilot.aitaskscheduler.dto;
 
 import cn.hutool.json.JSONUtil;
 import com.careerpilot.aitaskscheduler.entity.AiTask;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -15,6 +17,9 @@ import java.util.Map;
  */
 @Data
 public class TaskVO {
+
+    /** 静态方法里用不到 Spring 注入，这里自己持有一份 ObjectMapper。 */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private String taskId;
     private String userId;
@@ -57,14 +62,20 @@ public class TaskVO {
         return vo;
     }
 
-    /** 空串 / 非法 JSON 都要能安全返回空 Map，否则序列化成 null 会让前端炸。 */
+    /**
+     * 空串 / 非法 JSON 都要能安全返回空 Map，否则序列化成 null 会让前端炸。
+     *
+     * <p>必须用 Jackson 解析：Hutool 的 {@code toBean(Map.class)} 会把 JSON 里的 null
+     * 原样保留成 {@code cn.hutool.json.JSONNull}，Jackson 序列化这个视图时会抛
+     * "No serializer found for class cn.hutool.json.JSONNull"。
+     */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> parseJson(String json) {
         if (json == null || json.isBlank()) {
             return null;
         }
         try {
-            return JSONUtil.parseObj(json).toBean(Map.class);
+            return OBJECT_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
             return Map.of("_raw", json);
         }

@@ -19,6 +19,8 @@ import com.careerpilot.resumeservice.mapper.FileMapper;
 import com.careerpilot.resumeservice.mapper.ResumeMapper;
 import com.careerpilot.resumeservice.mapper.ResumeSectionMapper;
 import com.careerpilot.resumeservice.mapper.ResumeVersionMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,7 @@ public class ResumeService {
     private final FileStorageService fileStorage;
     private final AiTaskClient aiTaskClient;
     private final CareerPilotProperties properties;
+    private final ObjectMapper objectMapper;
 
     // ── 上传 ────────────────────────────────────────────────────
 
@@ -252,7 +255,16 @@ public class ResumeService {
         if (version == null || version.getAnalysisJson() == null || version.getAnalysisJson().isBlank()) {
             return null;
         }
-        Map<String, Object> result = JSONUtil.parseObj(version.getAnalysisJson()).toBean(Map.class);
+        // 必须用 Jackson 解析：Hutool 的 toBean(Map.class) 会把 JSON 里的 null
+        // 原样保留成 cn.hutool.json.JSONNull，Jackson 序列化响应时直接抛
+        // "No serializer found for class cn.hutool.json.JSONNull"。
+        Map<String, Object> result;
+        try {
+            result = objectMapper.readValue(version.getAnalysisJson(), new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("简历分析结果反序列化失败: resumeId={}", id, e);
+            return null;
+        }
         result.put("updatedAt", version.getCreatedAt() == null ? null : version.getCreatedAt().toString());
         return result;
     }

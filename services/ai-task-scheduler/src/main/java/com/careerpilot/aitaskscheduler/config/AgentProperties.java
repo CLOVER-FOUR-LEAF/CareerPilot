@@ -8,7 +8,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * AI 任务编排相关的外部依赖配置，全部支持环境变量覆盖，便于 Docker 编排。
+ * AI 任务编排相关的外部依赖配置，全部支持环境变量覆盖，
+ * 本地开发走 scripts/local/.env，部署到服务器时用同名环境变量覆盖即可。
  */
 @Data
 @Component

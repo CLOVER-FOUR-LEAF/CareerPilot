@@ -28,6 +28,18 @@ AGENTS = ROOT / "agents"
 WEB_SRC = ROOT / "web" / "src"
 CONTRACT = ROOT / "docs" / "API-CONTRACT.md"
 
+# 只检查我们自己写的源码。虚拟环境 / 构建产物里的第三方代码不归我们管，
+# 而且里面常带 U+FFFD 之类的字符，会把检查结果冲成一片假阳性。
+SKIP_DIRS = {".venv", "venv", "__pycache__", "node_modules", "target", ".git", ".runtime"}
+
+
+def project_files(root: Path, pattern: str) -> list[Path]:
+    """遍历项目源码，跳过虚拟环境与构建目录。"""
+    return sorted(
+        p for p in root.rglob(pattern)
+        if not any(part in SKIP_DIRS for part in p.relative_to(root).parts)
+    )
+
 # 前端可以多传、但 Agent 端不消费也不校验的键（契约里已声明为辅助信息）
 ALLOWED_EXTRA_KEYS = {
     "jd_id", "jd_text", "resume_id", "resume_text",
@@ -68,7 +80,7 @@ def fail(msg: str, errors: list[str]) -> None:
 # ── 1. 语法与编码 ───────────────────────────────────────────────
 
 def check_python(errors: list[str]) -> int:
-    files = sorted(AGENTS.rglob("*.py"))
+    files = project_files(AGENTS, "*.py")
     for path in files:
         try:
             text = path.read_text(encoding="utf-8")
@@ -89,7 +101,7 @@ def check_python(errors: list[str]) -> int:
 def collect_request_fields(agent_dir: Path) -> dict[str, set[str]]:
     """{Request 类名: {字段名}} —— 直接从 AST 读，不执行代码。"""
     found: dict[str, set[str]] = {}
-    for py in sorted(agent_dir.rglob("*.py")):
+    for py in project_files(agent_dir, "*.py"):
         try:
             tree = ast.parse(py.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
@@ -137,7 +149,7 @@ def collect_frontend_inputs() -> dict[str, set[str]]:
     """{taskType: {input 里出现的键}}。按 `taskType: 'x'` 就近找 input 对象。"""
     usage: dict[str, set[str]] = {}
 
-    for vue in sorted(WEB_SRC.rglob("*.vue")):
+    for vue in project_files(WEB_SRC, "*.vue"):
         text = vue.read_text(encoding="utf-8")
 
         # 抓 taskType: 'xxx' 的位置，再往后找最近的 input: { ... } 块

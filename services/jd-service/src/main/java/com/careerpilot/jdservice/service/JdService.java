@@ -15,6 +15,8 @@ import com.careerpilot.jdservice.entity.Jd;
 import com.careerpilot.jdservice.entity.JdParseResult;
 import com.careerpilot.jdservice.mapper.JdMapper;
 import com.careerpilot.jdservice.mapper.JdParseResultMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,7 @@ public class JdService {
     private final JdMapper jdMapper;
     private final JdParseResultMapper jdParseResultMapper;
     private final AiTaskClient aiTaskClient;
+    private final ObjectMapper objectMapper;
 
     // ── 新建 ────────────────────────────────────────────────────
 
@@ -172,11 +175,21 @@ public class JdService {
             return null;
         }
 
-        JSONObject chunk = JSONUtil.parseObj(result.getRawResultJson());
-        chunk.set("seniority", result.getSeniority());
-        chunk.set("industry", result.getIndustry());
-        chunk.set("createdAt", result.getCreatedAt() == null ? null : result.getCreatedAt().toString());
-        return chunk.toBean(Map.class);
+        // 这里必须用 Jackson 解析：Hutool 的 toBean(Map.class) 会把 JSON 里的 null
+        // 原样保留成 cn.hutool.json.JSONNull，Jackson 序列化响应时直接抛
+        // "No serializer found for class cn.hutool.json.JSONNull"，
+        // 前端拿到的就是一个 500。
+        Map<String, Object> chunk;
+        try {
+            chunk = objectMapper.readValue(result.getRawResultJson(), new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("解析结果反序列化失败: jdId={}", jd.getJdId(), e);
+            return null;
+        }
+        chunk.put("seniority", result.getSeniority());
+        chunk.put("industry", result.getIndustry());
+        chunk.put("createdAt", result.getCreatedAt() == null ? null : result.getCreatedAt().toString());
+        return chunk;
     }
 
     // ── 删除 ────────────────────────────────────────────────────
