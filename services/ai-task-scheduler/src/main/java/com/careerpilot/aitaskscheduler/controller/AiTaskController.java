@@ -35,7 +35,7 @@ public class AiTaskController {
     }
 
     @GetMapping("/{taskId}")
-    public ApiResponse<TaskVO> getTask(@PathVariable String taskId,
+    public ApiResponse<TaskVO> getTask(@PathVariable("taskId") String taskId,
                                        @RequestHeader("X-User-Id") String userId) {
         var task = aiTaskService.getOwnedTask(taskId, userId);
         if (task == null) {
@@ -59,7 +59,7 @@ public class AiTaskController {
      * 前端改用 fetch + ReadableStream 手工解析 SSE 帧。
      */
     @GetMapping(value = "/{taskId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> streamTask(@PathVariable String taskId,
+    public Flux<ServerSentEvent<String>> streamTask(@PathVariable("taskId") String taskId,
                                                     @RequestHeader("X-User-Id") String userId) {
         // 先做归属校验，别让别人的任务状态被读出来
         if (aiTaskService.getOwnedTask(taskId, userId) == null) {

@@ -450,6 +450,103 @@ ai-task-scheduler 回调。**不经网关**。
 }
 ```
 
+### 4.5 `POST /api/v1/hr/insight`（HR 侧洞察报告）
+
+```json
+{ "resumeId": 12, "jdId": 7, "maxQuestions": 12 }
+```
+
+（`resumeId` / `jdId` 都是数据库主键；`maxQuestions` 可选，默认 12。）
+
+同步做完「取素材 + 归属校验 + 建记录」，异步跑报告生成。响应 `data`：
+
+```json
+{
+  "insightId": "ins_a1b2c3d4",
+  "taskId": "task_5566eeff",
+  "status": "PROCESSING"
+}
+```
+
+`taskId` 为 `null` 表示任务登记失败，记录停在 `PENDING`。
+
+### 4.6 `GET /api/v1/hr/insight/{insightId}`
+
+```json
+{
+  "insightId": "ins_a1b2c3d4",
+  "taskId": "task_5566eeff",
+  "jdId": "jd_a1b2c3d4",
+  "resumeId": "res_a1b2c3d4",
+  "status": "SUCCESS",
+  "report": { /* HrInsightReport，见 §7.8 */ },
+  "capabilityCoverage": [ /* CapabilityCoverage[] */ ],
+  "gapPlan": [ /* VerificationQuestion[] */ ],
+  "createdAt": "..."
+}
+```
+
+`status = PROCESSING` 时 `report` 为 `null`。
+
+### 4.7 `GET /api/v1/hr/insight/list?page=1&size=20`
+
+`data.items[]` 为 `insightId` / `jdId` / `resumeId` / `status` / `createdAt`。
+
+### 4.8 `POST /api/v1/hr/verify/answer`（提交面试官录入的回答）
+
+```json
+{ "insightId": "ins_a1b2c3d4", "vqId": "vq#1", "answer": "……", "roundNo": 1 }
+```
+
+> **判定信号不由前端传入** —— 服务端从已保存的报告里取。
+> 否则改一下信号就能让判定对自己有利。
+
+响应 `data`：
+
+```json
+{
+  "recordId": "ver_a1b2c3d4",
+  "taskId": "task_7788eeff",
+  "status": "PROCESSING",
+  "insightId": "ins_a1b2c3d4",
+  "vqId": "vq#1"
+}
+```
+
+判定结果通过任务结果返回（见 §5.3 的 `output`），并由回调写入 `t_verification_record`。
+
+### 4.9 `GET /api/v1/hr/verify/records/{insightId}`
+
+`data[]` 为追问记录（人工决策留痕）：
+
+```json
+[{
+  "recordId": "ver_a1b2c3d4",
+  "vqId": "vq#1",
+  "roundNo": 1,
+  "question": "你们的 Kubernetes 是怎么从代码走到生产的？",
+  "answer": "……",
+  "coverage": "adjacent",
+  "confidence": 0.65,
+  "reason": "回答涉及该能力但停留在使用层面，未展开本人负责的部分。",
+  "evidenceRef": "我们用的是云厂商托管的集群服务",
+  "createdAt": "..."
+}]
+```
+
+### 4.10 `POST /internal/hr-insight-callback` / `POST /internal/hr-verify-callback`（内部）
+
+请求体形状同 §4.4。`bizId` 分别是 `insightId` 与 `recordId`。
+
+### 4.11 网关路由
+
+`/api/v1/hr/**` 走**新增的独立路由** `hr-service`（指向 match-service:8084），
+不改动既有 `/api/v1/match/**` 路由。
+
+> **合规约束**：本节所有接口只产出「证据覆盖情况」与「验证问题」，
+> 不产出任何录用建议或淘汰结论。判定枚举只有
+> `demonstrated` / `adjacent` / `not_evidenced` 三个值（R1）。
+
 ---
 
 ## 5. ai-task-scheduler（8085）
@@ -477,6 +574,12 @@ ai-task-scheduler 回调。**不经网关**。
 | `interview` | `:8001/api/orchestrate` | 同上 |
 | `cover_letter` | `:8001/api/orchestrate` | 同上 |
 | `career_plan` | `:8001/api/orchestrate` | 同上 |
+| `hr_insight` | `:8001/api/orchestrate`（转 interview-agent recruiter 模式） | `http://match-service:8084/internal/hr-insight-callback` |
+| `jd_calibrate` | `:8001/api/orchestrate`（转 interview-agent recruiter 模式） | 无（结果直接落在任务表） |
+| `hr_verify` | `:8001/api/orchestrate`（转 interview-agent recruiter 模式） | `http://match-service:8084/internal/hr-verify-callback` |
+
+> HR 侧三个 taskType 复用 `interview-agent` 的 recruiter 模式，
+> **不新增 Python Agent 进程**（约束 C1）。
 
 响应 `data` 为任务快照（见 5.3）。
 
@@ -697,6 +800,130 @@ final_score = round(0.40 * semantic_score + 0.35 * keyword_score + 0.25 * busine
 
 > 每条 roadmap 的 `doc_ids` 只能引用检索真实命中的文档，禁止编造引用。
 
+### 7.8 HR 侧输出结构（interview-agent recruiter 模式）
+
+#### 7.8.1 `HrInsightReport`（`POST /api/hr/insight`）
+
+入参：
+
+```json
+{
+  "jd_text": "…",
+  "resume_text": "…",
+  "jd_skills": ["Kubernetes", "Kafka"],
+  "gaps": [
+    { "gap_ref": "gap#1", "gap_type": "missing_skill",
+      "gap_content": "Kubernetes", "severity": 5 }
+  ],
+  "match_result": { /* MatchResult，可为 null */ },
+  "max_questions": 12
+}
+```
+
+输出：
+
+```json
+{
+  "match_overview": {
+    "final_score": 72.5, "semantic_score": 70.0,
+    "keyword_score": 75.0, "business_score": 71.0,
+    "matched_skills": ["Redis", "MySQL"]
+  },
+  "capability_coverage": [
+    { "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "required_level": 3, "evidence_level": 1, "gap_refs": ["gap#1"] }
+  ],
+  "attributions": [
+    {
+      "gap_ref": "gap#1", "gap_type": "missing_skill",
+      "gap_content": "Kubernetes", "severity": 5,
+      "gap_category": "skill",
+      "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "required_level": 3, "evidence_level": 1, "gap_kind": "adjacent",
+      "explanation": "该岗位要求交付与工程实践方向的能力（层级 3），简历体现约在层级 1，属于相邻经验；…",
+      "evidence_ref": "主导 CI/CD 流水线建设与日常发布",
+      "llm_used": false
+    }
+  ],
+  "verification_plan": [
+    {
+      "id": "vq#1", "gap_ref": "gap#1",
+      "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "severity": 5,
+      "question": "你们的 Kubernetes 是怎么从代码走到生产的？",
+      "intent": "区分「交付与工程实践的相邻经验」与「达到岗位要求的交付与工程实践能力」，…",
+      "probes": [
+        { "question": "如果 Kubernetes 要回滚或升级，当时的流程是什么？",
+          "trigger": "回答未展开具体操作或场景" }
+      ],
+      "signals": [
+        { "verdict": "demonstrated", "evidence": "回答中出现了交付与工程实践方向的具体操作、量级或判断依据",
+          "keywords": ["配置", "扩容", "回滚", "排障"] },
+        { "verdict": "adjacent", "evidence": "回答涉及交付与工程实践但停留在使用层面，未展开本人负责的部分",
+          "keywords": ["使用", "托管", "yaml"] },
+        { "verdict": "not_evidenced", "evidence": "回答未提供该维度的可核查信息",
+          "keywords": ["不太清楚", "同事负责"] }
+      ],
+      "rule_generated": true
+    }
+  ],
+  "disclaimer": "本报告为辅助建议，最终判断由招聘方作出。……",
+  "audit_note": "以上结论均可溯源到原始输入文本；……",
+  "gap_count": 1, "question_count": 1, "dimension_count": 1
+}
+```
+
+#### 7.8.2 `JdCalibration`（`POST /api/hr/calibrate`）
+
+入参 `{ "jd_text": "…", "job_title": "高级后端工程师" }`。
+
+输出：
+
+```json
+{
+  "capability_model": [
+    { "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "required_level": 3, "evidence_level": 0 }
+  ],
+  "hard_gates": [
+    { "item": "本科及以上", "type": "education", "one_vote_veto": true }
+  ],
+  "over_filtering_signals": [
+    { "signal": "同时设置了多项一票否决式硬门槛（学历/年限/资质），…", "risk": "screening_out" }
+  ],
+  "vague_phrases": [
+    { "phrase": "熟悉分布式", "why_vague": "未说明「分布式」指的是哪一层，…",
+      "suggestion": "拆成具体项：…" }
+  ],
+  "disclaimer": "本报告为辅助建议，最终判断由招聘方作出。……"
+}
+```
+
+#### 7.8.3 `CoverageVerdict`（`POST /api/hr/verify`）
+
+入参 `{ "question": { /* VerificationQuestion，见 7.8.1 */ }, "answer": "…", "round_no": 1 }`。
+
+输出：
+
+```json
+{
+  "vq_id": "vq#1",
+  "coverage": "adjacent",
+  "confidence": 0.65,
+  "matched_signal_index": 1,
+  "reason": "回答涉及该能力但停留在使用层面，未展开本人负责的部分，属于相邻经验。",
+  "evidence_ref": "我们用的是云厂商托管的集群服务",
+  "should_probe": false,
+  "suggested_probes": []
+}
+```
+
+> **判定枚举只有三个值**：`demonstrated` / `adjacent` / `not_evidenced`。
+> `not_evidenced` 的含义是「**本次提问未获得证据**」，
+> **不是**「候选人不具备该能力」。措辞在代码常量、prompt、UI、文档四处一致（R1 / ADR-004）。
+>
+> `evidence_ref` 必须能在 `answer` 原文中定位（由 Agent 侧代码校验，R3 / ADR-002）。
+
 ---
 
 ## 8. 前端页面清单
@@ -713,6 +940,7 @@ final_score = round(0.40 * semantic_score + 0.35 * keyword_score + 0.25 * busine
 | `/interview` | `Interview.vue` | §5.1（`interview`）§5.3 |
 | `/cover-letter` | `CoverLetter.vue` | §5.1（`cover_letter`）§5.3 |
 | `/career-plan` | `CareerPlan.vue` | §5.1（`career_plan`）§5.3 |
+| `/hr-insight` | `HrView.vue` | §4.5 §4.6 §4.7 §4.8 §4.9 §5.1（`hr_insight`）§5.3 |
 | `/profile` | `Profile.vue` | §1.5 §1.6 |
 
 ---
@@ -739,3 +967,4 @@ Python Agent 统一：
 | `JD_PARSER_URL` | `http://localhost:8002` | |
 | `RESUME_ANALYZER_URL` | `http://localhost:8003` | |
 | `OPENAI_API_KEY` | 空 | 为空时走纯规则引擎，不调用 LLM |
+| `LLM_PROMPT_VERSION` | `v1` | prompt 版本号，改动 system prompt 时递增 |

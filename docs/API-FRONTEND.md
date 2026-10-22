@@ -20,16 +20,27 @@
 - [0. 三十秒速览](#0-三十秒速览)
 - [1. 全局约定](#1-全局约定)
 - [2. 请求链路总览](#2-请求链路总览)
+  - [2.3 HR 侧异步链路](#23-hr-侧异步链路)
 - [3. 接口清单速查表](#3-接口清单速查表)
 - [4. 认证模块（user-center :8081）](#4-认证模块user-center-8081)
 - [5. 用户画像模块（user-center :8081）](#5-用户画像模块user-center-8081)
 - [6. 简历模块（resume-service :8082）](#6-简历模块resume-service-8082)
 - [7. JD 模块（jd-service :8083）](#7-jd-模块jd-service-8083)
 - [8. 匹配模块（match-service :8084）](#8-匹配模块match-service-8084)
+  - [8.4 `POST /api/v1/hr/insight`](#84-post-apiv1hrinsight)
+  - [8.5 `GET /api/v1/hr/insight/{insightId}`](#85-get-apiv1hrinsightinsightid)
+  - [8.6 `GET /api/v1/hr/insight/list`](#86-get-apiv1hrinsightlist)
+  - [8.7 `POST /api/v1/hr/verify/answer`](#87-post-apiv1hrverifyanswer)
+  - [8.8 `GET /api/v1/hr/verify/records/{insightId}`](#88-get-apiv1hrverifyrecordsinsightid)
+  - [8.9 HR 侧合规约束](#89-hr-侧合规约束)
 - [9. AI 任务模块（ai-task-scheduler :8085）](#9-ai-任务模块ai-task-scheduler-8085)
+  - [9.5 HR 侧任务类型](#95-hr-侧任务类型)
 - [10. AI 能力页面（Optimize / Interview / CoverLetter / CareerPlan）](#10-ai-能力页面optimize--interview--coverletter--careerplan)
 - [11. 内部接口（不经过网关）](#11-内部接口不经过网关)
+  - [11.6 `POST /internal/hr-insight-callback`](#116-post-internalhr-insight-callback)
+  - [11.7 `POST /internal/hr-verify-callback`](#117-post-internalhr-verify-callback)
 - [12. Python Agent 接口（后端 → AI 层）](#12-python-agent-接口后端--ai-层)
+  - [12.3 HR 侧 Agent 接口](#123-hr-侧-agent-接口)
 - [13. SSE 协议详解](#13-sse-协议详解)
 - [14. 页面 → 接口对照表](#14-页面--接口对照表)
 - [15. 四条主链路时序](#15-四条主链路时序)
@@ -52,6 +63,7 @@ Vite dev :3000  ──/api 代理──▶  Spring Cloud Gateway :8080
                                   ├── /api/v1/resume/**               → resume-service :8082
                                   ├── /api/v1/jd/**                   → jd-service     :8083
                                   ├── /api/v1/match/**                → match-service  :8084
+                                  ├── /api/v1/hr/**                   → match-service  :8084
                                   └── /api/v1/ai-tasks/**             → ai-task-scheduler :8085
                                                                         │
                                                           线程池异步 ──▶ agent-orchestrator :8001
@@ -181,6 +193,10 @@ const instance = axios.create({ baseURL: '/api/v1', timeout: 30000 })
 - 前端把主键换成业务 ID 再传给 AI：`Optimize.vue:173` → `selected.jdBizId`
 - 匹配记录里存的是**业务 ID**（`MatchService.java:56`：`record.setResumeId(resume.getResumeBizId())`）
 
+> ⚠️ **HR 侧有个反直觉的地方**：`POST /api/v1/hr/insight` 的 `resumeId` / `jdId` 是**数据库主键**，
+> 但 `GET /api/v1/hr/insight/{insightId}` 返回的 `jdId` / `resumeId` 是**业务 ID**（`jd_xxx` / `res_xxx`）——
+> 报告记录里存的就是业务 ID（`HrInsightService.java:66`）。别拿返回值再当主键回传给别的接口。
+
 ### 1.7 文件上传
 
 `POST /api/v1/resume/upload` 使用 `multipart/form-data`：
@@ -235,6 +251,36 @@ Agent 返回结果
 - **前端不直接调 Agent**，只调 `POST /api/v1/ai-tasks`，用 `taskType` 区分能力
 - **业务服务也不直接调 Agent**，统一经调度器，调度器是唯一知道 Agent 地址的地方
 - `resume_optimize` / `interview` / `cover_letter` / `career_plan` **没有回调配置**，结果留在 `t_ai_task.output_payload`，前端按 `taskId` 自己取
+- **HR 侧是例外**：前端调的是业务接口（`POST /api/v1/hr/insight`），业务接口内部再登记任务并**配了回调**，报告由回调写回业务表（见 [§2.3](#23-hr-侧异步链路)）
+
+### 2.3 HR 侧异步链路
+
+HR 侧多了一步「gap → 归因 → 验证问题」，链路比 2.2 长一截：
+
+```
+前端 POST /api/v1/hr/insight { resumeId, jdId, maxQuestions }
+   │
+   ▼
+match-service :8084
+   │  ① 取素材（简历/JD 原文）+ 归属校验
+   │  ② 落 t_hr_insight（PENDING）
+   │  ③ POST /api/v1/ai-tasks { taskType: "hr_insight", bizId: insightId }
+   ▼
+ai-task-scheduler :8085 → agent-orchestrator :8001
+   │  LangGraph 路由到 hr_insight 节点：
+   │  ④ POST match-agent :8004 /api/match      → 算出 gap_list
+   │  ⑤ POST interview-agent :8006 /api/hr/insight → 归因 + 生成验证问题
+   ▼
+回调 POST /internal/hr-insight-callback → match-service 写回报告
+   │  （写 t_hr_insight 的 report_json / capability_json / gap_plan_json）
+   ▼
+前端轮询 GET /api/v1/hr/insight/{insightId}（或跟踪 taskId）
+```
+
+> **前端拿 `insightId` 之后有两条路**：轮询 `GET /api/v1/hr/insight/{insightId}` 拿完整报告，
+> 或按 `taskId` 跟 `GET /api/v1/ai-tasks/{taskId}`。**推荐前者**——报告已经组装好了，不用自己拼。
+>
+> `POST /api/v1/hr/verify/answer` 是同构的短链路：`hr_verify` 任务 → `POST /api/hr/verify` → `/internal/hr-verify-callback` 写回 `t_verification_record`。
 
 ---
 
@@ -273,8 +319,13 @@ Agent 返回结果
 | 27 | GET | `/api/v1/ai-tasks/{taskId}` | ai-task-scheduler | ✅ | `aiTaskApi.get` | 轮询 / SSE 收尾 |
 | 28 | GET | `/api/v1/ai-tasks/{taskId}/stream` | ai-task-scheduler | ✅ | `createSseStream` | Optimize（`useStream: true`） |
 | 29 | GET | `/api/v1/ai-tasks/list` | ai-task-scheduler | ✅ | — | ⚠️ 后端有，前端未用 |
+| 30 | POST | `/api/v1/hr/insight` | match-service | ✅ | `hrApi.createInsight` | HrView |
+| 31 | GET | `/api/v1/hr/insight/{insightId}` | match-service | ✅ | `hrApi.getInsight` | HrView |
+| 32 | GET | `/api/v1/hr/insight/list` | match-service | ✅ | `hrApi.listInsights` | HrView |
+| 33 | POST | `/api/v1/hr/verify/answer` | match-service | ✅ | `hrApi.submitAnswer` | HrView |
+| 34 | GET | `/api/v1/hr/verify/records/{insightId}` | match-service | ✅ | `hrApi.getRecords` | HrView |
 
-**共 29 个对外端点，前端实际使用 26 个。**
+**共 34 个对外端点，前端实际使用 31 个。**
 
 ### 3.2 内部接口（服务间直连，不过网关）
 
@@ -285,6 +336,8 @@ Agent 返回结果
 | GET | `/internal/jds/{id}/text?userId=` | jd-service | match-service |
 | POST | `/internal/jd-parse-callback` | jd-service | ai-task-scheduler |
 | POST | `/internal/match-callback` | match-service | ai-task-scheduler |
+| POST | `/internal/hr-insight-callback` | match-service | ai-task-scheduler |
+| POST | `/internal/hr-verify-callback` | match-service | ai-task-scheduler |
 
 ### 3.3 Agent 接口（后端 → Python）
 
@@ -299,6 +352,9 @@ Agent 返回结果
 | POST | `/api/optimize` | resume-optimizer-agent | 8005 |
 | POST | `/api/question` | interview-agent | 8006 |
 | POST | `/api/evaluate` | interview-agent | 8006 |
+| POST | `/api/hr/insight` | interview-agent | 8006 |
+| POST | `/api/hr/calibrate` | interview-agent | 8006 |
+| POST | `/api/hr/verify` | interview-agent | 8006 |
 | POST | `/api/generate` | cover-letter-agent | 8007 |
 | POST | `/api/plan` | career-advisor-agent | 8008 |
 
@@ -626,6 +682,10 @@ accessToken 是无状态 JWT，网关每请求查一次 Redis 就把网关变成
 
 ## 8. 匹配模块（match-service :8084）
 
+> **8.1–8.3 是求职侧的匹配能力，8.4–8.9 是招聘方（HR）侧的洞察能力**，两者在同一个服务里，
+> 网关各有一条独立路由（`/api/v1/match/**` 与 `/api/v1/hr/**` 都指向 match-service :8084）。
+> 这五个 HR 端点在 `docs/API-CONTRACT.md` 里编号为 §4.5–§4.9。
+
 ### 8.1 `POST /api/v1/match/evaluate`
 
 **干什么**：发起匹配评估。**同步做**「取素材 + 归属校验 + 建记录」，**异步跑**打分。
@@ -704,6 +764,200 @@ accessToken 是无状态 JWT，网关每请求查一次 Redis 就把网关变成
 
 **响应 `data`**：`{ total, page, size, items: [{ recordId, resumeId, jdId, status, finalScore, createdAt }] }`
 
+### 8.4 `POST /api/v1/hr/insight`
+
+**干什么**：发起一份 HR 洞察报告（**异步**）。**同步做**「取素材 + 归属校验 + 建记录」，**异步跑**报告生成。
+
+**请求**（`HrInsightRequest`）
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `resumeId` | number | 是 | **数据库主键**（不是业务 ID） |
+| `jdId` | number | 是 | **数据库主键**（不是业务 ID） |
+| `maxQuestions` | number | 否 | 最多产出多少个验证问题，默认 `12` |
+
+**响应 `data`**
+
+```json
+{
+  "insightId": "ins_a1b2c3d4",
+  "taskId": "task_5566eeff",
+  "status": "PROCESSING"
+}
+```
+
+**同步阶段实际做了什么**（`HrInsightService.java:55`）：
+
+1. `GET resume-service /internal/resumes/{id}/text?userId=` → **归属校验在这里发生**
+2. `GET jd-service /internal/jds/{id}/text?userId=`
+3. 落一条 `t_hr_insight`（status=PENDING）
+4. `POST ai-task-scheduler /api/v1/ai-tasks { taskType: "hr_insight", bizId: insightId }`
+5. 记录状态改 PROCESSING，返回
+
+> **失败语义**：这里返回成功 = 任务已经在跑。`taskId` 为 `null` 表示**任务登记失败**，记录停在 `PENDING`（接口本身仍是成功）。
+> 简历 / JD 不存在或越权 → `code = 1404`；参数校验失败 → `code = 1400`；素材服务不可用 → `code = 1501`。
+
+### 8.5 `GET /api/v1/hr/insight/{insightId}`
+
+**干什么**：取报告详情，**含逐 gap 的验证问题**。
+
+**Path**：`insightId` = 报告业务 ID（`ins_xxx`），**不是数据库主键**
+
+**响应 `data`**
+
+```json
+{
+  "insightId": "ins_a1b2c3d4",
+  "taskId": "task_5566eeff",
+  "jdId": "jd_a1b2c3d4",
+  "resumeId": "res_a1b2c3d4",
+  "status": "SUCCESS",
+  "report": { },
+  "capabilityCoverage": [ ],
+  "gapPlan": [ ],
+  "createdAt": "2026-10-22T12:00:00"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `insightId` | string | 报告业务 ID（`ins_xxx`） |
+| `taskId` | string \| null | 关联的 AI 任务 ID |
+| `jdId` | string | **业务 ID**（`jd_xxx`），不是主键 |
+| `resumeId` | string | **业务 ID**（`res_xxx`），不是主键 |
+| `status` | string | `PROCESSING` / `SUCCESS` |
+| `report` | object \| null | 完整报告（`HrInsightReport`，见 [§12.3](#123-hr-侧-agent-接口)） |
+| `capabilityCoverage` | object[] | 能力维度覆盖（= `report.capability_coverage`） |
+| `gapPlan` | object[] | 验证问题列表（= `report.verification_plan`） |
+| `createdAt` | string | 创建时间 |
+
+> ⚠️ **`status = PROCESSING` 时 `report` 为 `null`**（`HrInsightService.java:116`：报告 JSON 还没落库就是还在跑）。
+> `capabilityCoverage` / `gapPlan` 是从 `report` 里**原样拆出来的两份**，内容一致，只是省得前端再解一层。
+>
+> ⚠️ **`status` 只有 `PROCESSING` / `SUCCESS` 两个值**（值由「报告有没有落库」推导，不是任务状态）：
+> **任务失败时 `status` 仍然是 `PROCESSING`**。要区分「还在跑」和「跑挂了」，得再看
+> `GET /api/v1/ai-tasks/{taskId}` 里那个任务的 `status` / `errorMessage`。
+
+### 8.6 `GET /api/v1/hr/insight/list`
+
+**干什么**：我的报告列表（分页，按创建时间倒序）。
+
+**Query**：`page`（默认 1）、`size`（默认 20）
+
+**响应 `data`**：`{ total, page, size, items: HrInsightListItem[] }`
+
+**`HrInsightListItem`**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `insightId` | string | 报告业务 ID |
+| `jdId` | string | 业务 ID（`jd_xxx`） |
+| `resumeId` | string | 业务 ID（`res_xxx`） |
+| `status` | string | `PROCESSING` / `SUCCESS`（口径同 8.5） |
+| `createdAt` | string | 创建时间 |
+
+### 8.7 `POST /api/v1/hr/verify/answer`
+
+**干什么**：提交面试官录入的回答，触发一次**覆盖判定**（**异步**）。
+
+**请求**（`HrVerifyAnswerRequest`）
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `insightId` | string | 是 | 报告业务 ID（`ins_xxx`） |
+| `vqId` | string | 是 | 验证问题 ID，即 `gapPlan[].id`，形如 `vq#1` |
+| `answer` | string | 是 | 面试官录入的回答原文 |
+| `roundNo` | number | 否 | 第几轮追问，从 1 开始，默认 `1` |
+
+**响应 `data`**
+
+```json
+{
+  "recordId": "ver_a1b2c3d4",
+  "taskId": "task_7788eeff",
+  "status": "PROCESSING",
+  "insightId": "ins_a1b2c3d4",
+  "vqId": "vq#1"
+}
+```
+
+> ⚠️ **判定信号不由前端传入** —— 服务端按 `vqId` 从**已保存的报告**里取「问题 + 判定信号」
+> （`HrInsightService.java:287`）。**否则前端改一下信号就能让判定对自己有利。**
+> 请求体里**没有** `question` / `signals` 字段，多传会被静默忽略。
+>
+> 判定结果异步产出，通过任务结果返回，再由回调写进 `t_verification_record`；
+> 也可以直接调 [§8.8](#88-get-apiv1hrverifyrecordsinsightid) 看已落库的记录。
+> `vqId` 在报告里找不到 → `code = 1404`。
+
+### 8.8 `GET /api/v1/hr/verify/records/{insightId}`
+
+**干什么**：某份报告下的全部追问记录（**人工决策留痕**）。
+
+**Path**：`insightId` = 报告业务 ID
+
+**响应 `data`（数组，不是分页对象）**
+
+```json
+[
+  {
+    "recordId": "ver_a1b2c3d4",
+    "vqId": "vq#1",
+    "roundNo": 1,
+    "question": "你们的 Kubernetes 是怎么从代码走到生产的？",
+    "answer": "……",
+    "coverage": "adjacent",
+    "confidence": 0.65,
+    "reason": "回答涉及该能力但停留在使用层面，未展开本人负责的部分。",
+    "evidenceRef": "我们用的是云厂商托管的集群服务",
+    "createdAt": "2026-10-22T12:30:00"
+  }
+]
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `recordId` | string | 追问记录业务 ID（`ver_xxx`） |
+| `vqId` | string | 对应的验证问题 ID |
+| `roundNo` | number | 第几轮追问 |
+| `question` | string | 提问原文（服务端从报告里取的） |
+| `answer` | string | 面试官录入的回答 |
+| `coverage` | string \| null | 判定结果，取值见 [§8.9](#89-hr-侧合规约束)；**没判完时是 `null`** |
+| `confidence` | number \| null | 置信度 0–1 |
+| `reason` | string \| null | 判定理由 |
+| `evidenceRef` | string \| null | 回答里的原文片段（可溯源） |
+| `createdAt` | string | 创建时间 |
+
+> ⚠️ `coverage` / `confidence` / `reason` / `evidenceRef` **在判定任务跑完前都是 `null`**——
+> 记录先落库，判定结果由回调补写。列表里看到 `coverage = null` 说明还在判，不是失败。
+
+### 8.9 HR 侧合规约束
+
+> 这一节是**前端硬约束**，不是建议。后端枚举、文案常量、prompt 三处一致（ADR-004）。
+
+**判定枚举只有三个值**（后端 `ALLOWED_VERDICTS`，`agents/interview-agent/app/hr/compliance.py:32`）：
+
+| 判定值 | 展示文案 | 含义 |
+|---|---|---|
+| `demonstrated` | 已体现 | 有直接证据支持该能力达到要求层级 |
+| `adjacent` | 有相邻经验 | 有相邻经验，部分满足 |
+| `not_evidenced` | 本次未获取到证据 | **本次提问未获得证据** |
+
+> ⚠️ **`not_evidenced` 的含义是「这次没问到」，不是「候选人不具备该能力」。**
+> 前端文案必须用「本次未获取到证据」，**不能**写成「不符合 / 不合适 / 淘汰」这类结论性表述。
+>
+> 展示文案固定为「已体现 / 有相邻经验 / 本次未获取到证据」，来源是后端常量 `VERDICT_LABELS`
+> （`compliance.py:35`），前端 `verdictLabel()` 与之逐字对应（`HrView.vue:447`）。**不要自己另造一套词。**
+
+**免责声明由后端代码拼接**（`report.disclaimer`、`report.audit_note`，`compliance.py:81`）：
+
+> 本报告为辅助建议，最终判断由招聘方作出。报告中的判定仅反映本次提问中获取到的证据，「本次未获取到证据」不代表候选人不具备该能力。
+
+前端**直接展示、不要改写、不要让模型重新生成**——这两段是代码常量，LLM 碰不到它。
+
+**每条结论可溯源**：`evidence_ref` / `evidenceRef` 是回答或简历里的**原文片段**，后端已校验过它确实存在于输入文本中（校验不过整条结论不采信）。
+
+**`disclaimer` / `audit_note` 两个字段在报告里始终存在**（不是可选字段），即使报告里一个 gap 都没有也照样带。
+
 ---
 
 ## 9. AI 任务模块（ai-task-scheduler :8085）
@@ -730,7 +984,7 @@ POST /api/v1/ai-tasks  { taskType, bizId, input }
 
 > `input` 设计成对象而不是 JSON 字符串，是为了不强迫调用方手工拼 JSON（`CreateTaskRequest.java:12`）。
 
-**7 种 taskType**
+**10 种 taskType**
 
 | taskType | Agent | 回调 | 业务表 |
 |---|---|---|---|
@@ -741,6 +995,9 @@ POST /api/v1/ai-tasks  { taskType, bizId, input }
 | `interview` | interview-agent :8006 | ❌ | 仅 `t_ai_task` |
 | `cover_letter` | cover-letter-agent :8007 | ❌ | 仅 `t_ai_task` |
 | `career_plan` | career-advisor :8008 | ❌ | 仅 `t_ai_task` |
+| `hr_insight` | interview-agent :8006（recruiter 模式） | ✅ `http://match-service:8084/internal/hr-insight-callback` | `t_hr_insight` |
+| `jd_calibrate` | interview-agent :8006（recruiter 模式） | ❌ | 仅 `t_ai_task` |
+| `hr_verify` | interview-agent :8006（recruiter 模式） | ✅ `http://match-service:8084/internal/hr-verify-callback` | `t_verification_record` |
 
 **响应 `data`（`TaskVO`）**
 
@@ -809,6 +1066,22 @@ PENDING ──▶ RUNNING ──┬──▶ SUCCESS   (progress=100)
 **Query**：`limit`（默认 20，上限 200）
 
 **响应 `data`**：`TaskVO[]`（按创建时间倒序）
+
+### 9.5 HR 侧任务类型
+
+`hr_insight` / `jd_calibrate` / `hr_verify` 这三个 taskType 是 HR 侧能力专用的：
+
+| taskType | 干什么 | 回调 |
+|---|---|---|
+| `hr_insight` | 生成完整 HR 报告 | `http://match-service:8084/internal/hr-insight-callback` |
+| `jd_calibrate` | JD 反向校准 | 无（结果直接落在任务表） |
+| `hr_verify` | 回答覆盖判定 | `http://match-service:8084/internal/hr-verify-callback` |
+
+> **三个 taskType 都复用 `interview-agent`（:8006）的 recruiter 模式，不新增 Agent 进程。**
+> 回调地址配置在 `services/ai-task-scheduler/src/main/resources/application.yml:53`。
+>
+> 前端一般**不直接**建这三个任务——走 `POST /api/v1/hr/insight` / `POST /api/v1/hr/verify/answer` 更快，
+> 业务接口内部会替你登记任务并把 `taskId` 一起返回（见 [§8.4](#84-post-apiv1hrinsight)）。
 
 ---
 
@@ -1074,6 +1347,42 @@ submit({ taskType, bizId, input })
 - `t_match_record` 的分数列（`semantic_score` / `keyword_score` / `business_score` / `final_score`）+ `result_json`
 - `t_match_gap` 明细（**先删后插**，保证幂等）
 
+### 11.6 `POST /internal/hr-insight-callback`
+
+**调用方**：ai-task-scheduler ｜ **所属**：match-service
+
+**请求**：同 11.5 的结构（`bizId` = `ins_xxx`）
+
+```json
+{
+  "taskId": "task_5566eeff",
+  "bizId": "ins_a1b2c3d4",
+  "success": true,
+  "output": { },
+  "errorMessage": null,
+  "durationMs": 2310
+}
+```
+
+**干什么**：把 `HrInsightReport` 写回 `t_hr_insight`：
+- `report_json` = 完整报告
+- `capability_json` = `output.capability_coverage`
+- `gap_plan_json` = `output.verification_plan`
+
+### 11.7 `POST /internal/hr-verify-callback`
+
+**调用方**：ai-task-scheduler ｜ **所属**：match-service
+
+**请求**：同 11.6 的结构（`bizId` = `ver_xxx`）
+
+**干什么**：把 `CoverageVerdict` 写回 `t_verification_record`：
+- `coverage` ← `output.coverage`
+- `confidence` ← `output.confidence`
+- `reason` ← `output.reason`
+- `evidence_ref` ← `output.evidence_ref`
+
+> ⚠️ 回调体字段名以 **`errorMessage`** 为准（`InternalCallbackRequest.java`）。§11.3 示例里的 `error` 是笔误。
+
 ---
 
 ## 12. Python Agent 接口（后端 → AI 层）
@@ -1119,6 +1428,9 @@ submit({ taskType, bizId, input })
 | `interview` | `interview_agent` | interview-agent :8006 `/api/question` 或 `/api/evaluate` |
 | `cover_letter` | `cover_letter_agent` | cover-letter-agent :8007 `/api/generate` |
 | `career_plan` | `career_advisor` | career-advisor :8008 `/api/plan` |
+| `hr_insight` | `hr_insight` | match-agent :8004 `/api/match` → interview-agent :8006 `/api/hr/insight` |
+| `jd_calibrate` | `jd_calibrate` | interview-agent :8006 `/api/hr/calibrate` |
+| `hr_verify` | `hr_verify` | interview-agent :8006 `/api/hr/verify` |
 
 > **进度语义**（`graph.py:28`）：进度**只增不减**（`max()`），避免 SSE 出现回退。节点推进到 10 / 30 / 90，finalize 收到 100。
 
@@ -1138,8 +1450,142 @@ submit({ taskType, bizId, input })
 | interview-agent :8006 | `POST /api/evaluate` | `question`, `answer` | `jd_skills` |
 | cover-letter-agent :8007 | `POST /api/generate` | — | `jd_skills`, `resume_highlights`, `company_name`, `job_title`, `tone`, `company_info` |
 | career-advisor :8008 | `POST /api/plan` | — | `current_title`, `target_industry`, `target_position`, `years_of_experience`, `skills`, `question` |
+| interview-agent :8006 | `POST /api/hr/insight` | `jd_text`（或 `gaps`） | `resume_text`, `jd_skills`, `gaps`, `match_result`, `max_questions` |
+| interview-agent :8006 | `POST /api/hr/calibrate` | `jd_text` | `job_title` |
+| interview-agent :8006 | `POST /api/hr/verify` | `question`, `answer` | `round_no` |
 
 > 🔴 **Pydantic v2 默认 `extra='ignore'`**：上表**没有**声明的字段，Agent 会**静默丢弃**，不报错、不警告。全项目 43 个 Python 文件里**没有一处 `model_config` 覆盖**。这是 [§17.1](#171-高优先级前端传的-jd-信息在-agent-侧被静默丢弃) 的根因。
+
+### 12.3 HR 侧 Agent 接口
+
+三个端点都在 `interview-agent`（:8006）上，走**同一个进程**的 recruiter 模式，**没有新增 Agent**。
+前端不直接调它们——调用链是 `match-service → ai-task-scheduler → agent-orchestrator → interview-agent`。
+这里的结构就是前端最终拿到的 `GET /api/v1/hr/insight/{insightId}` 里 `report` 的内容。
+
+#### `POST /api/hr/insight`
+
+**请求**（`HrInsightRequest`）
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `jd_text` | string | 是 | JD 原文（与 `gaps` 不能同时为空） |
+| `resume_text` | string | 否 | 简历正文 |
+| `jd_skills` | string[] | 否 | JD 硬技能列表 |
+| `gaps` | object[] | 否 | 上游 match-agent 算好的缺口，每项 `{ gap_ref, gap_type, gap_content, severity }` |
+| `match_result` | object \| null | 否 | 匹配结果原样透传，可为 `null` |
+| `max_questions` | number | 否 | 最多产出多少个验证问题，默认 `12` |
+
+**输出 `HrInsightReport`**
+
+```json
+{
+  "match_overview": {
+    "final_score": 72.5, "semantic_score": 70.0,
+    "keyword_score": 75.0, "business_score": 71.0,
+    "matched_skills": ["Redis", "MySQL"]
+  },
+  "capability_coverage": [
+    { "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "required_level": 3, "evidence_level": 1, "gap_refs": ["gap#1"] }
+  ],
+  "attributions": [
+    {
+      "gap_ref": "gap#1", "gap_type": "missing_skill",
+      "gap_content": "Kubernetes", "severity": 5,
+      "gap_category": "skill",
+      "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "required_level": 3, "evidence_level": 1, "gap_kind": "adjacent",
+      "explanation": "该岗位要求交付与工程实践方向的能力（层级 3），简历体现约在层级 1，属于相邻经验；…",
+      "evidence_ref": "主导 CI/CD 流水线建设与日常发布",
+      "llm_used": false
+    }
+  ],
+  "verification_plan": [
+    {
+      "id": "vq#1", "gap_ref": "gap#1",
+      "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "severity": 5,
+      "question": "你们的 Kubernetes 是怎么从代码走到生产的？",
+      "intent": "区分「交付与工程实践的相邻经验」与「达到岗位要求的交付与工程实践能力」，…",
+      "probes": [
+        { "question": "如果 Kubernetes 要回滚或升级，当时的流程是什么？",
+          "trigger": "回答未展开具体操作或场景" }
+      ],
+      "signals": [
+        { "verdict": "demonstrated", "evidence": "回答中出现了交付与工程实践方向的具体操作、量级或判断依据",
+          "keywords": ["配置", "扩容", "回滚", "排障"] },
+        { "verdict": "adjacent", "evidence": "回答涉及交付与工程实践但停留在使用层面，未展开本人负责的部分",
+          "keywords": ["使用", "托管", "yaml"] },
+        { "verdict": "not_evidenced", "evidence": "回答未提供该维度的可核查信息",
+          "keywords": ["不太清楚", "同事负责"] }
+      ],
+      "rule_generated": true
+    }
+  ],
+  "disclaimer": "本报告为辅助建议，最终判断由招聘方作出。……",
+  "audit_note": "以上结论均可溯源到原始输入文本；……",
+  "gap_count": 1, "question_count": 1, "dimension_count": 1
+}
+```
+
+> `disclaimer` / `audit_note` 由代码拼接，**永远存在**，语义见 [§8.9](#89-hr-侧合规约束)。
+> `verification_plan[].signals[].verdict` 只可能是那三个枚举值。
+> `verification_plan[].id` 就是前端提交回答时用的 `vqId`（形如 `vq#1`）。
+
+#### `POST /api/hr/calibrate`
+
+**请求**（`HrCalibrateRequest`）：`{ "jd_text": "…", "job_title": "高级后端工程师" }`
+
+**输出 `JdCalibration`**
+
+```json
+{
+  "capability_model": [
+    { "dimension": "delivery", "dimension_name": "交付与工程实践",
+      "required_level": 3, "evidence_level": 0 }
+  ],
+  "hard_gates": [
+    { "item": "本科及以上", "type": "education", "one_vote_veto": true }
+  ],
+  "over_filtering_signals": [
+    { "signal": "同时设置了多项一票否决式硬门槛（学历/年限/资质），…", "risk": "screening_out" }
+  ],
+  "vague_phrases": [
+    { "phrase": "熟悉分布式", "why_vague": "未说明「分布式」指的是哪一层，…",
+      "suggestion": "拆成具体项：…" }
+  ],
+  "disclaimer": "本报告为辅助建议，最终判断由招聘方作出。……"
+}
+```
+
+#### `POST /api/hr/verify`
+
+**请求**（`HrVerifyRequest`）
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `question` | object | 是 | **完整** `VerificationQuestion`（带 `signals` 与 `probes`，判定才有依据） |
+| `answer` | string | 是 | 面试官录入的回答 |
+| `round_no` | number | 否 | 第几轮追问，默认 `1` |
+
+**输出 `CoverageVerdict`**
+
+```json
+{
+  "vq_id": "vq#1",
+  "coverage": "adjacent",
+  "confidence": 0.65,
+  "matched_signal_index": 1,
+  "reason": "回答涉及该能力但停留在使用层面，未展开本人负责的部分，属于相邻经验。",
+  "evidence_ref": "我们用的是云厂商托管的集群服务",
+  "should_probe": false,
+  "suggested_probes": []
+}
+```
+
+> `coverage` 只有 `demonstrated` / `adjacent` / `not_evidenced` 三个值；
+> `evidence_ref` 必须能在 `answer` 原文中定位，否则整条结论不采信。
+> 语义与前端措辞见 [§8.9](#89-hr-侧合规约束)。
 
 ---
 
@@ -1203,8 +1649,9 @@ const polling = useTaskPolling<ResumeOptimizeResult>({ useStream: true })
 | **Interview** | `/interview` | `GET /resume/list`、`GET /jd/list`、`GET /jd/{id}`、`POST /ai-tasks`（taskType=`interview`，两阶段） |
 | **CoverLetter** | `/cover-letter` | `GET /jd/list`、`GET /jd/{id}`、`POST /ai-tasks`（taskType=`cover_letter`） |
 | **CareerPlan** | `/career-plan` | `POST /ai-tasks`（taskType=`career_plan`） |
+| **HrView** | `/hr-insight` | `GET /resume/list`、`GET /jd/list`、`POST /hr/insight`、`GET /hr/insight/{insightId}`、`GET /hr/insight/list`、`POST /hr/verify/answer`、`GET /hr/verify/records/{insightId}`、`POST /ai-tasks`（taskType=`hr_insight`）、`GET /ai-tasks/{taskId}` |
 | **Profile** | `/profile` | `GET /user/profile`、`PUT /user/profile`、`GET /user/membership` |
-| **MainLayout** | — | 登出 `POST /auth/logout` |
+| **MainLayout** | — | 登出 `POST /auth/logout`；顶栏菜单含「HR 洞察」`/hr-insight` |
 
 **路由守卫**（`router/index.ts:96`）：未登录访问非 `public` 页面 → 重定向 `/login?redirect=<原路径>`；已登录访问 `/login` 或 `/register` → 重定向 `/dashboard`。
 
@@ -1408,10 +1855,11 @@ input: {
 
 本文档所有接口、字段、状态码均来自**逐文件读源码**核对，不是从旧文档转述：
 
-- Java 端点：`services/*/src/main/java/**/controller/*.java` 全部 11 个端点 Controller
+- Java 端点：`services/*/src/main/java/**/controller/*.java` 全部 13 个端点 Controller
 - 网关路由与鉴权：`gateway-service/application.yml` + `JwtAuthFilter.java`
 - Agent 端点与请求模型：`agents/*/app/main.py` 全部 8 个
-- 前端调用：`web/src/api/*.ts` + `web/src/composables/useTaskPolling.ts` + 全部 11 个 View
+- HR 侧：`match-service` 的 `HrController` / `HrCallbackController` / `HrInsightService` + `agents/interview-agent/app/hr/**`
+- 前端调用：`web/src/api/*.ts` + `web/src/composables/useTaskPolling.ts` + 全部 12 个 View
 - 契约一致性：`scripts/verify_contract.py` 的 `TASK_TYPE_TO_AGENT` / `ENDPOINT_TO_REQUEST` / `ALLOWED_EXTRA_KEYS`
 
 **发现文档与实现不符时，以实现为准，并更新本文档与 `docs/API-CONTRACT.md`。**

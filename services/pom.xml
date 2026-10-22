@@ -144,6 +144,23 @@
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
+                        <!--
+                            必须开 -parameters。
+
+                            本项目没有继承 spring-boot-starter-parent（只 import 了它的 BOM），
+                            而 Spring Boot 的父 POM 默认会带 -parameters。没有它，
+                            编译产物里就没有方法参数名，Spring 解析
+                            `@PathVariable String taskId` 这类**没写名字**的绑定时
+                            会抛 IllegalArgumentException：
+                            "Name for argument of type [java.lang.String] not specified"，
+                            接口直接 500。
+
+                            这不是理论问题 —— 曾经就因为它，
+                            GET /api/v1/ai-tasks/{taskId} 与 .../stream
+                            （前端所有 AI 页面轮询与 SSE 都走这两个）全线 500。
+                            开了这个参数，从根上杜绝同类问题复发。
+                        -->
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>
