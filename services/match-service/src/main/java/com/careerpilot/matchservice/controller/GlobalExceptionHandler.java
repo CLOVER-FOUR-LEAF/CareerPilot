@@ -2,6 +2,7 @@ package com.careerpilot.matchservice.controller;
 
 import com.careerpilot.matchservice.client.MatchSourceClient;
 import com.careerpilot.matchservice.dto.ApiResponse;
+import com.careerpilot.matchservice.service.HrInsightService;
 import com.careerpilot.matchservice.service.MatchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -24,6 +25,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MatchService.MatchRecordNotFoundException.class)
     public ApiResponse<Void> handleNotFound(MatchService.MatchRecordNotFoundException e) {
         return ApiResponse.error(1404, "匹配记录不存在或无权访问");
+    }
+
+    /** HR 洞察报告不存在或越权 —— 与「不存在」返回同一个码，不泄露资源是否存在。 */
+    @ExceptionHandler(HrInsightService.HrInsightNotFoundException.class)
+    public ApiResponse<Void> handleInsightNotFound(HrInsightService.HrInsightNotFoundException e) {
+        return ApiResponse.error(1404, "HR 洞察报告不存在或无权访问");
     }
 
     /** 素材不存在或越权 —— 和「不存在」返回同一个码，不泄露资源是否存在。 */

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
         "interview",
         "cover_letter",
         "career_plan",
+        # HR 侧（recruiter 模式，复用 interview-agent —— 约束 C1 不新增进程）
+        "hr_insight",
+        "jd_calibrate",
+        "hr_verify",
     )
 
     REDIS_URL: str = "redis://localhost:6379/0"

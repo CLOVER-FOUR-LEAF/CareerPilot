@@ -39,6 +39,10 @@ careerpilot:
     interview: interview-agent
     cover_letter: cover-letter-agent
     career_plan: career-advisor-agent
+    # HR 侧复用 interview-agent 的 recruiter 模式（约束 C1：不新增 Agent 进程）
+    hr_insight: interview-agent
+    jd_calibrate: interview-agent
+    hr_verify: interview-agent
   # 只有需要把结果写回业务表的类型才配回调；
   # resume_optimize / interview / cover_letter / career_plan 的结果留在
   # t_ai_task.output_payload，由前端按 taskId 自行拉取。
@@ -46,6 +50,8 @@ careerpilot:
     jd_parse: ${JD_SERVICE_CALLBACK_URL:http://localhost:8083/internal/jd-parse-callback}
     resume_analyze: ${RESUME_SERVICE_CALLBACK_URL:http://localhost:8082/internal/resume-analyze-callback}
     match_score: ${MATCH_SERVICE_CALLBACK_URL:http://localhost:8084/internal/match-callback}
+    hr_insight: ${MATCH_SERVICE_CALLBACK_URL:http://localhost:8084/internal/hr-insight-callback}
+    hr_verify: ${MATCH_SERVICE_CALLBACK_URL:http://localhost:8084/internal/hr-verify-callback}
 
 logging:
   level:

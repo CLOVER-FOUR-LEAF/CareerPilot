@@ -186,6 +186,79 @@ async def call_career_advisor(state: AgentState) -> AgentState:
     return state
 
 
+# ─── HR 侧（recruiter 模式）──────────────────────────────────────
+
+async def call_hr_insight(state: AgentState) -> AgentState:
+    """
+    生成完整 HR 洞察报告。
+
+    两步：
+    1. match-agent 算出差距清单（L1，复用同一套匹配引擎）
+    2. interview-agent 的 recruiter 模式做归因与验证计划（L2 + L3）
+
+    这里只做**编排**（决定谁先谁后、怎么串），业务逻辑全在 Agent 侧。
+    """
+    agent = "interview-agent"
+    _advance(state, 20, "match-agent")
+    try:
+        payload = dict(state.get("input_data") or {})
+
+        # ── 1. L1：匹配打分，拿到 gap_list ──
+        match_payload = {
+            "jd_text": payload.get("jd_text", ""),
+            "resume_text": payload.get("resume_text", ""),
+        }
+        if payload.get("jd_skills"):
+            match_payload["jd_skills"] = payload["jd_skills"]
+        match_result = await post_json(f"{settings.MATCH_AGENT_URL}/api/match", match_payload)
+        state["match_result"] = match_result
+
+        # ── 2. L2 + L3：归因 + 验证计划 ──
+        _advance(state, 50, agent)
+        insight_payload = {
+            "jd_text": payload.get("jd_text", ""),
+            "resume_text": payload.get("resume_text", ""),
+            "jd_skills": payload.get("jd_skills") or [],
+            "gaps": match_result.get("gap_list") or [],
+            "match_result": match_result,
+            "max_questions": payload.get("max_questions", 12),
+        }
+        raw = await post_json(f"{settings.INTERVIEW_AGENT_URL}/api/hr/insight", insight_payload)
+        state["hr_insight_result"] = raw
+        _advance(state, 90, agent)
+    except AgentError as exc:
+        _fail(state, agent, exc)
+    return state
+
+
+async def call_jd_calibrate(state: AgentState) -> AgentState:
+    """JD 反向校准"""
+    agent = "interview-agent"
+    _advance(state, 30, agent)
+    try:
+        payload = dict(state.get("input_data") or {})
+        raw = await post_json(f"{settings.INTERVIEW_AGENT_URL}/api/hr/calibrate", payload)
+        state["jd_calibrate_result"] = raw
+        _advance(state, 90, agent)
+    except AgentError as exc:
+        _fail(state, agent, exc)
+    return state
+
+
+async def call_hr_verify(state: AgentState) -> AgentState:
+    """对候选人回答做覆盖判定"""
+    agent = "interview-agent"
+    _advance(state, 30, agent)
+    try:
+        payload = dict(state.get("input_data") or {})
+        raw = await post_json(f"{settings.INTERVIEW_AGENT_URL}/api/hr/verify", payload)
+        state["hr_verify_result"] = raw
+        _advance(state, 90, agent)
+    except AgentError as exc:
+        _fail(state, agent, exc)
+    return state
+
+
 # ─── 收口节点 ──────────────────────────────────────────────────
 
 async def finalize(state: AgentState) -> AgentState:
@@ -222,6 +295,9 @@ def should_continue(state: AgentState) -> str:
         "interview": "interview_agent",
         "cover_letter": "cover_letter_agent",
         "career_plan": "career_advisor",
+        "hr_insight": "hr_insight",
+        "jd_calibrate": "jd_calibrate",
+        "hr_verify": "hr_verify",
     }.get(task_type)
     return node or "finalize"
 
@@ -237,6 +313,9 @@ NODE_HANDLERS: tuple[tuple[str, str, Any], ...] = (
     ("interview", "interview_agent", call_interview_agent),
     ("cover_letter", "cover_letter_agent", call_cover_letter_agent),
     ("career_plan", "career_advisor", call_career_advisor),
+    ("hr_insight", "hr_insight", call_hr_insight),
+    ("jd_calibrate", "jd_calibrate", call_jd_calibrate),
+    ("hr_verify", "hr_verify", call_hr_verify),
 )
 
 

@@ -41,7 +41,8 @@ CAPABILITY_DIMENSIONS: dict[str, dict] = {
     "data": {
         "name": "数据与存储",
         "signals": ("mysql", "redis", "elasticsearch", "es", "索引", "分库",
-                    "分表", "缓存", "一致性", "数据建模", "数仓", "存储", "数据库"),
+                    "分表", "缓存", "一致性", "数据建模", "数仓", "存储", "数据库",
+                    "kafka", "rabbitmq", "rocketmq", "消息队列", "消息中间件", "kafka"),
     },
     "domain": {
         "name": "业务领域理解",
@@ -230,13 +231,19 @@ def _longest_token(text: str) -> str:
     return max(parts, key=len)
 
 
-def infer_evidence_level(resume_text: str, dimension: str) -> int:
+def infer_evidence_level(resume_text: str, dimension: str, skill: str = "") -> int:
     """
     推断候选人在该维度上已体现的层级（0-3）。
 
     0 = 简历里看不到该维度的任何信号。
 
     **完全由规则决定**（C3）。
+
+    :param skill: gap 指向的具体技能。传了就额外看一层 ——
+        维度有证据不代表**这个具体技能**有证据。
+        简历里有 CI/CD、有发布流水线（delivery 层级 3），
+        但要问的是 Kubernetes 集群运维 —— 这个具体技能简历里没有，
+        证据层级就该压到 1，否则归因会得出「证据已经很足」的错误结论。
     """
     meta = CAPABILITY_DIMENSIONS.get(dimension)
     if not meta:
@@ -255,7 +262,12 @@ def infer_evidence_level(resume_text: str, dimension: str) -> int:
 
     # 简历里出现强措辞（主导/独立）说明不止是「用过」
     if any(marker in text for marker in ("主导", "独立", "从0到1", "从 0 到 1", "牵头", "负责")):
-        return min(3, base + 1)
+        base = min(3, base + 1)
+
+    # 具体技能没出现在简历里 → 该技能的证据压到 1（有相邻经验，没直接证据）
+    if skill and len(skill) >= 2:
+        if skill.lower() not in text.lower():
+            base = min(base, 1)
 
     return base
 

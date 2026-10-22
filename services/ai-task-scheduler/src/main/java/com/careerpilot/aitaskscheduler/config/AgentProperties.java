@@ -39,7 +39,12 @@ public class AgentProperties {
                     "resume_optimize", "resume-optimizer-agent",
                     "interview", "interview-agent",
                     "cover_letter", "cover-letter-agent",
-                    "career_plan", "career-advisor-agent"
+                    "career_plan", "career-advisor-agent",
+                    // HR 侧复用 interview-agent 的 recruiter 模式
+                    // （约束 C1：本期不新增 Python Agent 进程）
+                    "hr_insight", "interview-agent",
+                    "jd_calibrate", "interview-agent",
+                    "hr_verify", "interview-agent"
             ));
 
     /** 支持的任务类型白名单。 */

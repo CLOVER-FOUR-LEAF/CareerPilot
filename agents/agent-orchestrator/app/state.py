@@ -29,6 +29,11 @@ class AgentState(TypedDict, total=False):
     cover_letter_result: Optional[dict]
     career_plan_result: Optional[dict]
 
+    # ── HR 侧（recruiter 模式）──
+    hr_insight_result: Optional[dict]
+    jd_calibrate_result: Optional[dict]
+    hr_verify_result: Optional[dict]
+
     # ── 输出 ──
     final_output: Optional[dict]
     phase: str                 # interview 任务的两阶段标记
@@ -56,6 +61,9 @@ def new_state(
         interview_result=None,
         cover_letter_result=None,
         career_plan_result=None,
+        hr_insight_result=None,
+        jd_calibrate_result=None,
+        hr_verify_result=None,
         final_output=None,
         phase=(input_data or {}).get("phase", ""),
     )
@@ -70,6 +78,9 @@ RESULT_KEYS: dict[str, str] = {
     "interview": "interview_result",
     "cover_letter": "cover_letter_result",
     "career_plan": "career_plan_result",
+    "hr_insight": "hr_insight_result",
+    "jd_calibrate": "jd_calibrate_result",
+    "hr_verify": "hr_verify_result",
 }
 
 # 任务类型 -> 当前执行的 agent 名称（写入 current_agent 供前端展示进度）
@@ -81,6 +92,11 @@ AGENT_NAMES: dict[str, str] = {
     "interview": "interview-agent",
     "cover_letter": "cover-letter-agent",
     "career_plan": "career-advisor-agent",
+    # HR 侧复用 interview-agent 的 recruiter 模式 —— 计划书硬约束 C1：
+    # 本期不新增 Python Agent 进程
+    "hr_insight": "interview-agent",
+    "jd_calibrate": "interview-agent",
+    "hr_verify": "interview-agent",
 }
 
 

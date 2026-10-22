@@ -137,9 +137,19 @@ public class MatchSourceClient {
 
     /** 登记匹配打分任务。失败返回 null（调用方据此把记录留在 PENDING）。 */
     public String submitMatchScore(String userId, String recordBizId, Map<String, Object> input) {
+        return submitTask(userId, "match_score", recordBizId, input);
+    }
+
+    /**
+     * 登记一个 AI 任务。失败返回 null（调用方据此把记录留在 PENDING）。
+     *
+     * <p>所有任务类型走同一个入口 —— 任务类型不同，但「建任务 + 拿 taskId」
+     * 的流程完全一样，没必要为每种类型写一份。
+     */
+    public String submitTask(String userId, String taskType, String bizId, Map<String, Object> input) {
         Map<String, Object> body = Map.of(
-                "taskType", "match_score",
-                "bizId", recordBizId,
+                "taskType", taskType,
+                "bizId", bizId,
                 "input", input);
 
         try {
@@ -156,7 +166,7 @@ public class MatchSourceClient {
             Object taskId = data.get("taskId");
             return taskId == null ? null : String.valueOf(taskId);
         } catch (RestClientException e) {
-            log.error("登记匹配任务失败: recordId={}, err={}", recordBizId, e.getMessage());
+            log.error("登记 AI 任务失败: taskType={}, bizId={}, err={}", taskType, bizId, e.getMessage());
             return null;
         }
     }

@@ -31,6 +31,13 @@ spring:
           predicates:
             - Path=/api/v1/match/**
 
+        # ── HR 侧洞察 ────────────────────────────────────────
+        # 追加新路由，不动既有 5 条（HR 侧是新增能力，不改既有契约）
+        - id: hr-service
+          uri: http://${MATCH_SERVICE_HOST:localhost:8084}
+          predicates:
+            - Path=/api/v1/hr/**
+
         # ── AI 任务与 AI 生成类功能 ──────────────────────────
         - id: ai-task-scheduler
           uri: http://${AI_SCHEDULER_HOST:localhost:8085}

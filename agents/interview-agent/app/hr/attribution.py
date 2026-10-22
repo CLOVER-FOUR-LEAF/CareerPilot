@@ -20,6 +20,7 @@ LLM 不可用时，explanation 退化为规则拼装的确定性文案 ——
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -56,6 +57,10 @@ class GapAttribution(BaseModel):
     gap_content: str = ""
     severity: int = 0
 
+    # gap 的类别：skill / metric / hard_gate
+    # 决定用哪套提问框架，也决定它是否进入「能力维度覆盖」。
+    gap_category: str = "skill"
+
     dimension: str = ""
     dimension_name: str = ""
     required_level: int = 1
@@ -67,6 +72,56 @@ class GapAttribution(BaseModel):
 
     # 该条归因是否因为引用校验失败而被丢弃了文案（规则结论仍然保留）
     llm_used: bool = False
+
+
+# 硬性门槛的内容特征（学历 / 年限）。
+# 学历门槛是「岗位要求」不是「能力弱」（ADR-005 / §5.6 B6），
+# 所以它不进入能力维度覆盖，但仍然可以被验证 —— 问的是候选人实际的情况，
+# 不是给候选人的能力下判断。
+_EDUCATION_GATE_MARKERS: tuple[str, ...] = (
+    "学历", "本科", "硕士", "博士", "大专", "统招",
+)
+_EXPERIENCE_GATE_MARKERS: tuple[str, ...] = (
+    "工作年限", "年限不足", "年经验", "工作经验",
+)
+
+
+def categorize_gap(gap_type: str, gap_content: str) -> str:
+    """
+    判断 gap 属于哪一类（规则决定）。
+
+    - hard_gate：学历 / 年限这类硬性门槛
+    - metric：量化结果不足
+    - skill：技能或资质缺失
+    """
+    content = gap_content or ""
+
+    if any(marker in content for marker in _EDUCATION_GATE_MARKERS):
+        return "hard_gate"
+    if any(marker in content for marker in _EXPERIENCE_GATE_MARKERS):
+        return "hard_gate"
+    if gap_type == "missing_skill" or gap_type == "missing_cert":
+        return "skill"
+    if gap_type == "weak_metric":
+        return "metric"
+    return "skill"
+
+
+def _skill_token(gap_content: str) -> str:
+    """
+    从 gap 内容里取出技能名。
+
+    技能类 gap 的 content 就是技能名本身（match-agent 这么生成的），
+    但也可能带前缀描述，这里清洗一下。清洗后不像技能名的返回空串
+    —— 空串表示「不按具体技能判定证据层级」。
+    """
+    cleaned = (gap_content or "").strip()
+    cleaned = re.sub(r"^(缺少|缺乏|没有|未体现|不满足|关于)\s*", "", cleaned)
+    cleaned = re.sub(r"(相关)?(经验|技能|能力)$", "", cleaned).strip()
+    # 像整句说明的（超过 20 字）不是技能名
+    if not cleaned or len(cleaned) > 20:
+        return ""
+    return cleaned
 
 
 class CapabilityCoverage(BaseModel):
@@ -191,6 +246,7 @@ async def attribute_gaps(
     # ── 1. 规则层：分类与分级 ──
     results: list[GapAttribution] = []
     for gap in gaps:
+        category = categorize_gap(gap.get("gap_type", ""), gap.get("gap_content", ""))
         dimension, _detail = classify_dimension(
             gap.get("gap_content", ""),
             gap.get("gap_type", ""),
@@ -198,12 +254,18 @@ async def attribute_gaps(
             resume_text,
         )
         required = infer_required_level(jd_text, gap.get("gap_content", ""))
-        evidence = infer_evidence_level(resume_text, dimension)
+        # 技能类 gap 要看**具体技能**在简历里有没有出现过，
+        # 不能只看维度层面有没有证据（见 infer_evidence_level 的说明）
+        skill = ""
+        if category == "skill":
+            skill = _skill_token(gap.get("gap_content", ""))
+        evidence = infer_evidence_level(resume_text, dimension, skill)
         results.append(GapAttribution(
             gap_ref=gap.get("gap_ref", ""),
             gap_type=gap.get("gap_type", ""),
             gap_content=gap.get("gap_content", ""),
             severity=int(gap.get("severity") or 0),
+            gap_category=category,
             dimension=dimension,
             dimension_name=DIMENSION_NAMES.get(dimension, dimension),
             required_level=required,
@@ -301,9 +363,14 @@ def build_capability_coverage(
 
     同一维度可能对应多个 gap，合并它们的 gap_ref；
     required_level 取最高，evidence_level 取最高（该维度上最好的证据）。
+
+    **硬性门槛（学历/年限）不进入这里** —— 那是岗位准入条件，
+    不是能力评估（ADR-005 / §5.6 B6）。
     """
     buckets: dict[str, CapabilityCoverage] = {}
     for item in attributions:
+        if item.gap_category == "hard_gate":
+            continue
         coverage = buckets.get(item.dimension)
         if coverage is None:
             coverage = CapabilityCoverage(
