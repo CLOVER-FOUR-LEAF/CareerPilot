@@ -1,0 +1,138 @@
+{
+  "summary": {
+    "samples": 12,
+    "dimension_accuracy": 1.0,
+    "question_coverage": 1.0,
+    "forbidden_rate": 0.0,
+    "evidence_rate": 1.0,
+    "targets": {
+      "dimension_accuracy": 0.7,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0
+    },
+    "passed": true
+  },
+  "results": [
+    {
+      "sample_id": "be-001-k8s",
+      "gap_count": 3,
+      "question_count": 3,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "be-002-arch",
+      "gap_count": 3,
+      "question_count": 3,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "fe-001-react",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "data-001-warehouse",
+      "gap_count": 2,
+      "question_count": 1,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "sre-001-k8s",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "pm-001-domain",
+      "gap_count": 2,
+      "question_count": 1,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "lead-001-collab",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "be-003-cache",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "qa-001-test",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "be-004-mq",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "sec-001-risk",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    },
+    {
+      "sample_id": "be-005-fullstack",
+      "gap_count": 2,
+      "question_count": 2,
+      "dimension_accuracy": 1.0,
+      "question_coverage": 1.0,
+      "forbidden_rate": 0.0,
+      "evidence_rate": 1.0,
+      "violations": []
+    }
+  ]
+}

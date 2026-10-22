@@ -61,6 +61,7 @@ import {
   MailOutlined,
   RocketOutlined,
   SolutionOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -78,6 +79,7 @@ const menuRoutes: Record<string, string> = {
   interview: '/interview',
   coverLetter: '/cover-letter',
   careerPlan: '/career-plan',
+  hrInsight: '/hr-insight',
 }
 
 const menuItems = [
@@ -89,6 +91,7 @@ const menuItems = [
   { key: 'interview', icon: () => h(SolutionOutlined), label: '模拟面试' },
   { key: 'coverLetter', icon: () => h(MailOutlined), label: '求职信' },
   { key: 'careerPlan', icon: () => h(RocketOutlined), label: '职业规划' },
+  { key: 'hrInsight', icon: () => h(TeamOutlined), label: 'HR 洞察' },
 ]
 
 // 高亮当前路由（顶层面板中 firstSegment 即菜单 key）

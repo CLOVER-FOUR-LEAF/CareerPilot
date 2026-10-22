@@ -3,6 +3,10 @@ import type {
   AiTask,
   AiTaskCreateParams,
   AtsScoreResult,
+  HrInsightCreated,
+  HrInsightDetail,
+  HrInsightListItem,
+  HrVerifySubmitted,
   JdDetail,
   JdListItem,
   JdParseResult,
@@ -24,6 +28,7 @@ import type {
   ResumeVersion,
   UpdateProfileParams,
   UserProfile,
+  VerificationRecord,
 } from '@/types'
 
 export interface ListParams {
@@ -119,6 +124,26 @@ export const aiTaskApi = {
   create: <T = unknown>(data: AiTaskCreateParams) => request.post<AiTask<T>>('/ai-tasks', data),
   /** §5.2 查询任务 */
   get: <T = unknown>(taskId: string) => request.get<AiTask<T>>(`/ai-tasks/${taskId}`, { silent: true }),
+}
+
+// ─── §6 hr（招聘方视角）─────────────────────────────────────────
+
+export const hrApi = {
+  /** §6.1 发起 HR 洞察报告（异步），返回 insightId + taskId */
+  createInsight: (data: { resumeId: number; jdId: number; maxQuestions?: number }) =>
+    request.post<HrInsightCreated>('/hr/insight', data),
+  /** §6.2 报告详情（含逐 gap 的验证问题） */
+  getInsight: (insightId: string) =>
+    request.get<HrInsightDetail>(`/hr/insight/${insightId}`, { silent: true }),
+  /** §6.3 我的报告列表 */
+  listInsights: (params?: ListParams) =>
+    request.get<PageResult<HrInsightListItem>>('/hr/insight/list', { params: normalizeList(params) }),
+  /** §6.4 提交面试官录入的回答，触发一次覆盖判定 */
+  submitAnswer: (data: { insightId: string; vqId: string; answer: string; roundNo?: number }) =>
+    request.post<HrVerifySubmitted>('/hr/verify/answer', data),
+  /** §6.5 某份报告下的全部追问记录 */
+  getRecords: (insightId: string) =>
+    request.get<VerificationRecord[]>(`/hr/verify/records/${insightId}`, { silent: true }),
 }
 
 // ─── 工具 ────────────────────────────────────────────────────

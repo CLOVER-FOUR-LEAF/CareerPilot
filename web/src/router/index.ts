@@ -78,6 +78,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '职业规划' },
       },
       {
+        path: 'hr-insight',
+        name: 'HrInsight',
+        component: () => import('@/views/HrView.vue'),
+        meta: { title: 'HR 洞察' },
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),

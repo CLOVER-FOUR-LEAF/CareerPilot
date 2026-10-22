@@ -239,6 +239,121 @@ python scripts/verify_contract.py
 
 退出码 0 = 通过。
 
+### 另外两个自动化检查
+
+```bash
+python scripts/check_semantic_loss.py    # 语义丢失（前端 → Agent）
+python scripts/check_forbidden_terms.py  # 禁用词（合规自检）
+```
+
+`check_semantic_loss.py` 查的是 `verify_contract.py` 查不出来的那一类问题：
+**前端传了，但链路中间没人消费**。历史上就因为 Pydantic 默认
+`extra='ignore'`，`jd_skills` 被静默丢弃，三个 AI 功能悄悄退化成
+通用模板文案，而契约检查是全绿的。
+
+---
+
+## HR 侧能力（招聘方视角）
+
+> **本报告为辅助建议，最终判断由招聘方作出。**
+
+同一套匹配引擎，翻转一个视角服务招聘方。
+
+### 它解决什么问题
+
+简历是**自述材料**，不是能力证明。简历上写「主导过亿级流量系统」——
+可能真实，也可能包装；简历上**没写** Kubernetes——不代表不会，只代表**没有证据**。
+
+所以 HR 侧要的不是「一个分数」，而是「**该问什么**」：
+
+```
+匹配层发现缺口（L1）  →  归因到能力维度（L2）  →  转成验证问题（L3）
+  「缺 Kubernetes」        「交付运维能力，层级 3」   「你们的部署流程是怎样的？
+                                                    自己搭集群还是用托管服务？」
+```
+
+### 六个分区
+
+| 区 | 内容 |
+|---|---|
+| ① 匹配总览 | 复用 match-agent 的三段式分数 |
+| ② 能力维度覆盖 | 每个维度的「要求层级 vs 已有证据」 |
+| ③ 证据缺口与归因 | 逐条 gap：维度、层级差、归因说明、原文佐证 |
+| ④ 面试地图 | 验证问题 + 意图 + 追问 + 判定信号 |
+| ⑤ 追问记录 | 面试官录入回答 → 覆盖判定 + 理由 + 原文引用 |
+| ⑥ 免责与审计 | 由**代码拼接**的声明 |
+
+### 三层结构
+
+| 层 | 名称 | 产出 | 在哪 |
+|---|---|---|---|
+| L1 | 证据对齐 | 事实差异（缺什么技能） | `match-agent`（既有） |
+| L2 | 语义归因 | 背后真正缺的能力维度 | `interview-agent/app/hr/attribution.py` |
+| L3 | 行为验证 | 用什么问题能验出来 | `interview-agent/app/hr/verification.py` |
+
+### 三条硬约束（写在代码里，不是写在文档里）
+
+1. **判定枚举只有三个值**：`demonstrated` / `adjacent` / `not_evidenced`。
+   注意 `not_evidenced` 的意思是「**本次提问未获得证据**」，
+   **不是**「候选人不具备该能力」—— 简历没写 ≠ 不会。
+   枚举白名单在 `compliance.py`，运行期有断言兜底，另有禁用词扫描脚本。
+2. **免责声明由代码拼接**：不让 LLM 生成，防止模型漏写。
+3. **每条结论都可溯源**：模型引用的原文必须能在输入里定位，
+   定位不到就**丢弃该结论**（`verify_evidence_ref`）。
+
+### 确定性内核不交给 LLM
+
+分数、维度、层级、判定枚举、问题结构、禁用问法判定 —— 全部由规则决定；
+LLM 只做**文案润色**，且润色结果要过代码 linter，通不过就保留规则版本。
+
+这样「禁用问法率 = 0」是结构性保证，不是概率。
+
+### 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/hr/insight` | 发起报告（异步），返回 `insightId` + `taskId` |
+| GET | `/api/v1/hr/insight/{insightId}` | 报告详情（含逐 gap 的验证问题） |
+| GET | `/api/v1/hr/insight/list` | 我的报告列表 |
+| POST | `/api/v1/hr/verify/answer` | 提交面试官录入的回答 → 覆盖判定 |
+| GET | `/api/v1/hr/verify/records/{insightId}` | 追问记录（人工决策留痕） |
+
+新增的 taskType：`hr_insight` / `jd_calibrate` / `hr_verify`。
+HR 侧复用 `interview-agent` 的 recruiter 模式，**不新增 Agent 进程**。
+
+### 评估
+
+```bash
+python scripts/eval_hr_insight.py
+```
+
+输出四个指标：维度归因准确率、问题覆盖率、禁用问法率、引用可验证率。
+
+> ⚠ 当前数据集是**合成脱敏**样本，标注也是我们自己写的。
+> 指标全绿只说明**规则与我们的标注一致**，不代表真实场景准确率。
+> 这个脚本当前的价值是**回归基线**：规则一改，指标掉下来就能发现。
+> 要得到有业务意义的数字，需要接入 40-60 组真实人工标注样本。
+
+### 架构决策记录
+
+`docs/adr/` 下 6 条，每条含「背景 → 备选 → 决策 → 代价 → 什么条件下推翻它」：
+
+| ADR | 主题 |
+|---|---|
+| [ADR-001](./docs/adr/ADR-001-deterministic-core-vs-llm.md) | 确定性内核与 LLM 表现层分离 |
+| [ADR-002](./docs/adr/ADR-002-evidence-verification-as-gate.md) | 引用校验作为硬门槛 |
+| [ADR-003](./docs/adr/ADR-003-decision-support-not-decision-maker.md) | 产品形态：decision support 而非 decision maker |
+| [ADR-004](./docs/adr/ADR-004-verdict-enum-three-values.md) | 判定枚举三值，禁用「不符合/淘汰」类措辞 |
+| [ADR-005](./docs/adr/ADR-005-capability-taxonomy-excludes-demographics.md) | 能力维度 taxonomy 不含人口学特征 |
+| [ADR-006](./docs/adr/ADR-006-defer-langgraph-refactor.md) | 本期不改造 LangGraph 图结构 |
+
+### 合规边界（请如实理解）
+
+- 上述偏见缓解措施是**内部自检**，
+  **不等于**通过 NYC Local Law 144 要求的**独立第三方偏见审计**。
+- 法规状态核实于 2026-10-22，实施前请复核（EU AI Act 的合规期限
+  因 2026 Digital Omnibus 推迟至 2027-12-02）。
+
 ---
 
 ## 已知边界

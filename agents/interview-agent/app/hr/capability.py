@@ -47,7 +47,7 @@ CAPABILITY_DIMENSIONS: dict[str, dict] = {
     "domain": {
         "name": "业务领域理解",
         "signals": ("交易", "支付", "风控", "电商", "教育", "医疗", "招聘",
-                    "金融", "零售", "物流", "供应链", "营销", "增长"),
+                    "金融", "零售", "物流", "供应链", "营销", "增长", "安全"),
     },
     "collaboration": {
         "name": "协作与影响力",
@@ -91,6 +91,35 @@ GAP_TYPE_DIMENSION_HINTS: dict[str, tuple[str, ...]] = {
     "weak_metric": ("scale", "delivery"),
     "missing_cert": ("domain",),
 }
+
+# 强维度信号词。
+#
+# 通用信号词统计的是「出现过几次」，容易被上下文带偏 ——
+# 比如「Kafka」在数据/架构维度都算命中，靠词频分不出主次。
+# 而下面这些词是**明确指向某个维度**的：
+# 「消息中间件选型」是架构决策，「Kafka 运维」是数据层技能。
+# 命中它们时给一个明显更高的权重，让显式语义压过词频。
+STRONG_DIMENSION_HINTS: dict[str, tuple[str, ...]] = {
+    "delivery": ("发布", "部署", "流水线", "回滚", "灰度", "交付", "运维",
+                 "集群", "容器", "工程化", "构建", "上线", "发布流程",
+                 "研发流程", "流程改进", "流程建设"),
+    "scale": ("容量", "并发", "性能", "延迟", "高可用", "稳定性", "压测",
+              "峰值", "扩容", "吞吐", "故障", "限流", "降级", "量化", "指标"),
+    # 架构维度放的是**活动词**（选型/拆分/治理），不是技术名词 ——
+    # 「消息中间件选型」考的是做架构决策的能力，不是会不会用 MQ。
+    "architecture": ("选型", "架构", "拆分", "治理", "边界", "分布式", "一致性",
+                     "事务", "服务化", "重构", "领域驱动", "微服务治理"),
+    "data": ("建模", "数仓", "索引", "分库", "分表", "存储", "表结构",
+             "数据质量"),
+    "domain": ("风控", "交易", "支付", "电商", "教育", "医疗", "金融",
+               "策略", "增长", "营销", "供应链", "数据安全", "安全合规"),
+    "collaboration": ("协作", "跨部门", "跨团队", "沟通", "带人", "团队管理",
+                      "推动", "汇报", "对齐", "影响"),
+}
+
+# 强信号词的权重。要明显高于普通信号词（普通是 3 分/次），
+# 但不能高到能压过明显的反向证据。
+STRONG_HINT_WEIGHT = 8
 
 
 def normalize(text: str) -> str:
@@ -162,6 +191,14 @@ def classify_dimension(
     for key in GAP_TYPE_DIMENSION_HINTS.get(gap_type, ()):  # type: ignore[arg-type]
         scores[key] += 1
         detail[key] = detail.get(key, 0) + 1
+
+    # ── 5. 强维度信号词（显式语义优先于词频）──
+    for key, markers in STRONG_DIMENSION_HINTS.items():
+        hits = _count_signals(gap_content, markers)
+        if hits:
+            scores[key] += hits * STRONG_HINT_WEIGHT
+            content_score[key] += hits * STRONG_HINT_WEIGHT
+            detail[key] = detail.get(key, 0) + hits * STRONG_HINT_WEIGHT
 
     best = max(scores, key=lambda k: scores[k])
 

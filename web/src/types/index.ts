@@ -420,3 +420,162 @@ export interface CareerPlanResult {
   skill_gap: string[]
   citations: CareerPlanCitation[]
 }
+
+// ─── §8 HR 侧（招聘方视角）────────────────────────────────────
+
+/**
+ * 覆盖判定。只有这三个值。
+ * not_evidenced 的含义是「本次提问未获得证据」，**不是**「候选人不具备该能力」。
+ */
+export type VerificationVerdict = 'demonstrated' | 'adjacent' | 'not_evidenced'
+
+export interface VerificationSignal {
+  verdict: VerificationVerdict
+  evidence: string
+  keywords: string[]
+}
+
+export interface VerificationProbe {
+  question: string
+  trigger: string
+}
+
+export interface VerificationQuestion {
+  id: string
+  gap_ref: string
+  dimension: string
+  dimension_name: string
+  severity: number
+  question: string
+  intent: string
+  probes: VerificationProbe[]
+  signals: VerificationSignal[]
+  rule_generated: boolean
+}
+
+export interface GapAttribution {
+  gap_ref: string
+  gap_type: string
+  gap_content: string
+  severity: number
+  gap_category: string
+  dimension: string
+  dimension_name: string
+  required_level: number
+  evidence_level: number
+  gap_kind: string
+  explanation: string
+  evidence_ref: string
+  llm_used: boolean
+}
+
+export interface CapabilityCoverage {
+  dimension: string
+  dimension_name: string
+  required_level: number
+  evidence_level: number
+  gap_refs: string[]
+}
+
+export interface HrMatchOverview {
+  final_score: number
+  semantic_score: number
+  keyword_score: number
+  business_score: number
+  matched_skills: string[]
+}
+
+export interface HrInsightReport {
+  match_overview: HrMatchOverview
+  capability_coverage: CapabilityCoverage[]
+  attributions: GapAttribution[]
+  verification_plan: VerificationQuestion[]
+  /** 免责与审计声明 —— 由后端代码拼接，不由模型生成 */
+  disclaimer: string
+  audit_note: string
+  gap_count: number
+  question_count: number
+  dimension_count: number
+}
+
+export interface HrInsightCreated {
+  insightId: string
+  taskId: string | null
+  status: string
+}
+
+export interface HrInsightListItem {
+  insightId: string
+  jdId: string | null
+  resumeId: string | null
+  status: string
+  createdAt: string
+}
+
+export interface HrVerifySubmitted {
+  recordId: string
+  taskId: string | null
+  status: string
+  insightId: string
+  vqId: string
+}
+
+export interface HrInsightDetail {
+  insightId: string
+  taskId: string | null
+  jdId: string | null
+  resumeId: string | null
+  status: string
+  report: HrInsightReport | null
+  capabilityCoverage: CapabilityCoverage[]
+  gapPlan: VerificationQuestion[]
+  createdAt: string
+}
+
+export interface HrVerifyResult {
+  vq_id: string
+  coverage: VerificationVerdict
+  confidence: number
+  matched_signal_index: number
+  reason: string
+  evidence_ref: string
+  should_probe: boolean
+  suggested_probes: string[]
+}
+
+export interface VerificationRecord {
+  recordId: string
+  vqId: string
+  roundNo: number
+  question: string | null
+  answer: string | null
+  coverage: VerificationVerdict | null
+  confidence: number | null
+  reason: string | null
+  evidenceRef: string | null
+  createdAt: string
+}
+
+export interface JdCalibration {
+  capability_model: {
+    dimension: string
+    dimension_name: string
+    required_level: number
+    evidence_level: number
+  }[]
+  hard_gates: {
+    item: string
+    type: string
+    one_vote_veto: boolean
+  }[]
+  over_filtering_signals: {
+    signal: string
+    risk: string
+  }[]
+  vague_phrases: {
+    phrase: string
+    why_vague: string
+    suggestion: string
+  }[]
+  disclaimer: string
+}

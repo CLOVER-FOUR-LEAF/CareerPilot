@@ -260,6 +260,13 @@ async def attribute_gaps(
         if category == "skill":
             skill = _skill_token(gap.get("gap_content", ""))
         evidence = infer_evidence_level(resume_text, dimension, skill)
+
+        dimension_name = DIMENSION_NAMES.get(dimension, dimension)
+        if category == "hard_gate":
+            # 硬性门槛（学历/年限）不是能力维度，不硬套一个能力维度 ——
+            # 套上去会让「能力维度覆盖」图里出现一条没有意义的维度。
+            dimension = "hard_gate"
+            dimension_name = "硬性条件"
         results.append(GapAttribution(
             gap_ref=gap.get("gap_ref", ""),
             gap_type=gap.get("gap_type", ""),
@@ -267,7 +274,7 @@ async def attribute_gaps(
             severity=int(gap.get("severity") or 0),
             gap_category=category,
             dimension=dimension,
-            dimension_name=DIMENSION_NAMES.get(dimension, dimension),
+            dimension_name=dimension_name,
             required_level=required,
             evidence_level=evidence,
             gap_kind=dimension_gap_kind(required, evidence),

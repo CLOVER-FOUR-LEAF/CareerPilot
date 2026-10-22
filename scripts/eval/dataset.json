@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "version": "v1",
+    "created": "2026-10-22",
+    "note": "合成脱敏样本。用于验证 eval 链路与指标口径，不代表真实招聘效果。计划书目标为 40-60 组带完整人工标注的真实样本，接入前指标只反映口径正确性。",
+    "annotation_dimensions": ["gap_ref", "gap_type", "gap_content", "severity", "dimension"]
+  },
+  "samples": [
+    {
+      "id": "be-001-k8s",
+      "jd_text": "高级后端工程师（Kubernetes / CI/CD 方向）\n负责核心交易系统的架构设计与服务拆分，主导 CI/CD 流水线建设与生产环境发布。\n要求 5 年以上后端开发经验，本科及以上学历，熟悉分布式系统与微服务治理。\n有高并发、高可用系统设计经验者优先，熟悉 Redis 与 MySQL 索引优化。\n具备良好的沟通能力与团队协作精神，PMP 认证者优先。",
+      "resume_text": "2019-2023 某电商公司 后端工程师\n负责订单系统后端开发，参与微服务拆分，主导 CI/CD 流水线建设与日常发布。\n负责 Redis 缓存设计与 MySQL 索引优化，支撑日订单百万级。\n2023-至今 某支付公司 后端专家\n负责支付网关服务设计，独立完成限流熔断方案，参与服务治理。\n跨部门推动多个需求落地，负责技术方案评审与团队协作。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "Kubernetes", "severity": 5, "dimension": "delivery" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "Kafka", "severity": 4, "dimension": "data" },
+        { "gap_ref": "gap#3", "gap_type": "weak_metric", "gap_content": "简历缺少可量化的业务指标", "severity": 2, "dimension": "scale" }
+      ]
+    },
+    {
+      "id": "be-002-arch",
+      "jd_text": "系统架构师\n负责公司核心系统的微服务拆分与服务治理，制定领域驱动的架构方案。\n主导分布式事务与一致性方案设计，推动限流熔断等高可用治理。\n要求 8 年以上研发经验，其中 3 年以上架构设计经验，硕士及以上学历。\n熟悉 Kubernetes 集群运维者优先。",
+      "resume_text": "2016-2021 某支付公司 高级开发工程师\n负责支付网关功能开发，参与微服务拆分。\n2021-至今 某银行 资深开发工程师\n负责账户系统开发，参与领域驱动建模实践。\n主导过交易链路的限流方案落地。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "服务治理", "severity": 4, "dimension": "architecture" },
+        { "gap_ref": "gap#2", "gap_type": "weak_metric", "gap_content": "工作年限不足：岗位要求 8 年以上", "severity": 5, "dimension": "delivery" },
+        { "gap_ref": "gap#3", "gap_type": "missing_skill", "gap_content": "Kubernetes", "severity": 4, "dimension": "delivery" }
+      ]
+    },
+    {
+      "id": "fe-001-react",
+      "jd_text": "高级前端工程师\n负责公司核心业务前端架构设计与组件库建设，主导前端工程化与发布流程。\n要求精通 React 与 TypeScript，深入理解前端性能优化与构建工具链。\n有大规模前端项目经验者优先，具备良好的沟通能力与团队协作精神。",
+      "resume_text": "2020-至今 某 SaaS 公司 前端工程师\n负责后台管理系统开发，使用 React 与 TypeScript。\n参与组件库建设，主导前端构建流程改造。\n负责首屏性能优化，页面加载时间下降 40%。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "前端工程化", "severity": 4, "dimension": "delivery" },
+        { "gap_ref": "gap#2", "gap_type": "weak_metric", "gap_content": "简历缺少可量化的业务指标", "severity": 2, "dimension": "scale" }
+      ]
+    },
+    {
+      "id": "data-001-warehouse",
+      "jd_text": "数据工程师\n负责离线数仓分层建模与调度系统建设，主导数据质量监控体系落地。\n要求精通 Hive 与 Spark，熟悉数据仓库建模方法论，具备高并发数据处理经验。\n本科及以上学历，熟悉 MySQL 索引优化。",
+      "resume_text": "2021-至今 某电商公司 数据开发工程师\n负责报表开发，使用 Hive 与 Spark。\n参与数仓分层建设，负责每日调度任务维护。\n优化过一批慢查询的 SQL。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "数据质量监控", "severity": 4, "dimension": "data" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "数据仓库建模方法论", "severity": 4, "dimension": "data" }
+      ]
+    },
+    {
+      "id": "sre-001-k8s",
+      "jd_text": "SRE 工程师\n负责公司生产环境的稳定性保障，主导容器化部署与灰度发布流程建设。\n要求 3 年以上运维或 SRE 经验，精通 Kubernetes 集群运维与容量规划。\n熟悉高可用系统设计，具备良好的问题定位能力。",
+      "resume_text": "2020-2023 某云厂商 运维工程师\n负责容器化部署，使用 Docker 与 Kubernetes 做日常发布。\n参与告警体系维护。\n2023-至今 某电商公司 SRE\n负责生产环境容量评估与故障应急响应。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "灰度发布", "severity": 4, "dimension": "delivery" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "容量规划", "severity": 4, "dimension": "scale" }
+      ]
+    },
+    {
+      "id": "pm-001-domain",
+      "jd_text": "高级产品经理（支付方向）\n负责支付产品规划与交易链路优化，推动风控策略落地。\n要求 5 年以上互联网产品经验，深入理解交易与支付业务，熟悉风控策略。\n具备良好的跨部门沟通能力与数据分析能力。",
+      "resume_text": "2019-2023 某社区产品经理\n负责内容社区的产品规划，参与活动运营。\n2023-至今 某电商公司 产品经理\n负责营销活动产品，负责转化率分析与策略迭代。\n跨部门推动活动落地。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "风控策略", "severity": 5, "dimension": "domain" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "交易与支付业务", "severity": 5, "dimension": "domain" }
+      ]
+    },
+    {
+      "id": "lead-001-collab",
+      "jd_text": "研发组长 / 技术经理\n负责团队交付质量与研发流程改进，主导跨部门技术方案评审。\n要求 6 年以上研发经验，其中 2 年以上团队管理经验，本科及以上学历。\n具备良好的沟通能力与团队协作精神，推动跨团队对齐。",
+      "resume_text": "2018-2022 某公司 高级开发工程师\n负责核心模块开发，主导技术方案评审。\n2022-至今 某公司 技术负责人\n负责小组技术方向，带 4 人小组，跨部门推动多个项目落地。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "weak_metric", "gap_content": "学历不满足硬性要求：岗位要求 本科 及以上", "severity": 5, "dimension": "delivery" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "研发流程改进", "severity": 4, "dimension": "delivery" }
+      ]
+    },
+    {
+      "id": "be-003-cache",
+      "jd_text": "后端工程师（高并发方向）\n负责核心接口的性能优化，主导缓存与分库分表方案落地。\n要求熟悉 Redis 与 MySQL 索引优化，有高并发、高可用系统设计经验。\n本科及以上学历，3 年以上后端开发经验。",
+      "resume_text": "2021-至今 某社区 后端工程师\n负责接口开发，参与缓存设计。\n处理过几次线上超时问题，定位并修复了慢查询。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "分库分表", "severity": 5, "dimension": "data" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "高可用系统设计", "severity": 4, "dimension": "scale" }
+      ]
+    },
+    {
+      "id": "qa-001-test",
+      "jd_text": "测试开发工程师\n负责质量保障体系建设，主导自动化测试流水线与持续集成流程。\n要求熟悉 CI/CD 与容器化部署，深入理解测试左移理念。\n本科及以上学历，具备良好的沟通能力。",
+      "resume_text": "2020-至今 某公司 测试开发工程师\n负责接口自动化测试，参与 CI/CD 流水线建设。\n负责测试环境维护与部署。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "测试左移", "severity": 4, "dimension": "delivery" },
+        { "gap_ref": "gap#2", "gap_type": "weak_metric", "gap_content": "简历缺少可量化的业务指标", "severity": 2, "dimension": "scale" }
+      ]
+    },
+    {
+      "id": "be-004-mq",
+      "jd_text": "后端架构师\n负责消息中间件选型与分布式一致性方案，主导服务拆分与边界治理。\n要求精通 Kafka 与分布式事务，熟悉限流熔断与高可用治理。\n硕士及以上学历，8 年以上研发经验。",
+      "resume_text": "2017-2022 某支付 后端工程师\n负责清结算系统开发，参与分布式事务改造。\n2022-至今 某金融科技 架构师\n负责核心链路架构设计，主导服务拆分与限流方案。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "Kafka", "severity": 4, "dimension": "data" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "消息中间件选型", "severity": 4, "dimension": "architecture" }
+      ]
+    },
+    {
+      "id": "sec-001-risk",
+      "jd_text": "安全工程师\n负责业务风控体系与安全能力建设，主导交易链路安全策略落地。\n要求熟悉支付风控业务与数据安全，有高并发风控系统设计经验。\n本科及以上学历，具备良好的跨部门沟通能力。",
+      "resume_text": "2021-至今 某支付 安全工程师\n负责接口安全校验，参与风控规则开发。\n配合过几次大促的风控保障。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "高并发风控系统设计", "severity": 5, "dimension": "scale" },
+        { "gap_ref": "gap#2", "gap_type": "missing_skill", "gap_content": "数据安全", "severity": 4, "dimension": "domain" }
+      ]
+    },
+    {
+      "id": "be-005-fullstack",
+      "jd_text": "全栈工程师\n负责内部工具平台建设，主导前后端分离架构与发布流程。\n要求熟悉 React 与 Node.js，有 MySQL 索引优化经验，具备良好的团队协作精神。\n本科及以上学历，3 年以上开发经验。",
+      "resume_text": "2022-至今 某创业公司 全栈工程师\n负责内部工具开发，使用 React 与 Node.js。\n负责 MySQL 表结构设计与索引优化。",
+      "gaps": [
+        { "gap_ref": "gap#1", "gap_type": "missing_skill", "gap_content": "发布流程", "severity": 4, "dimension": "delivery" },
+        { "gap_ref": "gap#2", "gap_type": "weak_metric", "gap_content": "简历缺少可量化的业务指标", "severity": 2, "dimension": "scale" }
+      ]
+    }
+  ]
+}

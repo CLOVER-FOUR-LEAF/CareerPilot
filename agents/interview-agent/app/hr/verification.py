@@ -87,7 +87,7 @@ QUESTION_FRAMES: dict[str, str] = {
     "architecture": "你们当初是怎么决定这么做的？{skill} 在架构里承担什么角色？{probe}",
     "data": "{skill} 当时的数据量/访问模式是什么样的？{probe}",
     "domain": "这个业务里最难的点在哪？和 {skill} 怎么结合的？{probe}",
-    "collaboration": "这件事是你一个人做的还是跨团队？你负责了哪部分？{probe}",
+    "collaboration": "这件事你具体怎么推进的？团队里你负责了哪部分？{probe}",
 }
 
 # 量化类 gap（简历缺少可量化的业务指标）用这一套问法
@@ -224,7 +224,7 @@ _LEAK_PATTERNS: tuple[re.Pattern, ...] = (
 # 必须锚定场景：问题里至少出现一个
 _ANCHOR_MARKERS: tuple[str, ...] = (
     "怎么", "如何", "多少", "什么场景", "哪些", "流程", "时候", "当时",
-    "哪个", "为什么", "怎样", "什么", "几次", "多久", "怎样",
+    "哪个", "为什么", "怎样", "什么", "几次", "多久", "哪部分",
 )
 
 
@@ -532,6 +532,8 @@ async def build_verification_plan(
     ordered = sorted(attributions, key=lambda a: (-a.severity, a.dimension, a.gap_ref))
 
     questions: list[VerificationQuestion] = []
+    # 记下每个问题对应的归因，linter 兜底时要用它重建规则版本的问题
+    attribution_by_id: dict[str, GapAttribution] = {}
     for index, attribution in enumerate(ordered, 1):
         dimension = attribution.dimension
         dimension_name = attribution.dimension_name
@@ -553,6 +555,7 @@ async def build_verification_plan(
             rule_generated=True,
         )
         questions.append(question)
+        attribution_by_id[question.id] = attribution
 
     # 同维度的 gap 合并到一个问题下（避免同一个维度问三遍）
     questions = _merge_same_dimension(questions)
@@ -565,19 +568,21 @@ async def build_verification_plan(
     # 最后再过一次 linter，确保任何路径产出的问题都合规
     for q in questions:
         problems = lint_question(q.question)
-        if problems:
-            logger.warning("问题 %s 未通过 linter，回落规则版本：%s", q.id, problems)
-            fallback = build_rule_question(
-                GapAttribution(
-                    gap_ref=q.gap_ref,
-                    gap_type=q.gap_type,
-                    gap_content=q.gap_content,
-                    gap_category="hard_gate" if q.dimension == "hard_gate" else "skill",
-                    dimension=q.dimension if q.dimension != "hard_gate" else "delivery",
-                )
+        if not problems:
+            continue
+        logger.warning("问题 %s 未通过 linter，回落规则版本：%s", q.id, problems)
+        attribution = attribution_by_id.get(q.id)
+        if attribution is None:
+            # 合并过的问题取不到原始归因时，用问题自身的信息重建一个
+            attribution = GapAttribution(
+                gap_ref=q.gap_ref,
+                gap_type="missing_skill",
+                gap_content=q.question,
+                gap_category="hard_gate" if q.dimension == "hard_gate" else "skill",
+                dimension="delivery",
             )
-            q.question = fallback
-            q.rule_generated = True
+        q.question = build_rule_question(attribution)
+        q.rule_generated = True
 
     return questions
 
