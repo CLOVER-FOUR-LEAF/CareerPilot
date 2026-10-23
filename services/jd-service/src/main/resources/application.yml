@@ -31,6 +31,15 @@ careerpilot:
   ai-scheduler-url: ${AI_SCHEDULER_URL:http://localhost:8085}
   create-timeout-seconds: 10
 
+# 只暴露健康检查端点。
+# actuator 的 env / beans / configprops / heapdump 等端点默认不开放，
+# 这里显式写出来，是为了让「对外暴露面」在配置里可查，而不是依赖默认值。
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 logging:
   level:
     root: INFO

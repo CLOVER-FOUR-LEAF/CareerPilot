@@ -133,6 +133,28 @@
             <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!--
+            Actuator：提供 /actuator/health 健康检查端点。
+
+            这不是一个可有可无的依赖 —— 仓库里到处都假定它存在：
+              · README.md 的「启动后」地址表
+              · docs/API-FRONTEND.md 的网关公开端点清单
+              · deploy/nginx/conf.d/careerpilot.conf 专门拦掉 /actuator/
+              · scripts/local/start-services.ps1 启动后打印健康检查地址
+              · 网关 JwtAuthFilter 把 /actuator/health 列入白名单
+            但依赖从来没加进来，6 个服务的 /actuator/health 全都不通：
+            网关返回 404，其余 5 个被 @RestControllerAdvice 的兜底
+            Exception 处理器吞成 {"code":1500,"message":"服务内部错误"}，
+            看起来像服务挂了，实际只是端点没注册。
+
+            放在父 POM 里统一声明，6 个服务一起继承 ——
+            再加新服务时也不会漏。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
