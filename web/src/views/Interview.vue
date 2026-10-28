@@ -361,8 +361,8 @@ onMounted(fetchOptions)
   margin-bottom: 16px;
 }
 .question-card {
-  background: #f0f7ff;
-  border: 1px solid #91caff;
+  background: var(--paper-2);
+  border: 1px solid var(--line-strong);
 }
 .question-meta {
   display: flex;
@@ -384,7 +384,7 @@ onMounted(fetchOptions)
 }
 .task-status .hint {
   margin: 6px 0 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .history-panel {
@@ -404,13 +404,13 @@ onMounted(fetchOptions)
   font-size: 13px;
 }
 .record-question {
-  color: #333;
+  color: var(--ink);
 }
 .record-answer {
   color: #888;
 }
 .record-followup {
-  color: #fa8c16;
+  color: var(--accent);
 }
 .star-row {
   margin-top: 6px;

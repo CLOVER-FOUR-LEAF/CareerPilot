@@ -369,24 +369,24 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 .hint {
-  color: #1677ff;
+  color: var(--accent-deep);
   font-size: 12px;
 }
 .jd-title {
   font-weight: 500;
 }
 .jd-company {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
   margin-top: 2px;
 }
 .preview {
   margin: 0;
-  color: #666;
+  color: var(--ink-soft);
   font-size: 13px;
 }
 .muted {
-  color: #999;
+  color: var(--muted);
 }
 .tag-row {
   display: flex;

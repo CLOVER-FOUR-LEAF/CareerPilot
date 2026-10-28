@@ -381,7 +381,7 @@ onMounted(fetchAll)
 }
 .poll-hint {
   margin: 8px 0 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
   text-align: center;
 }
@@ -390,11 +390,11 @@ onMounted(fetchAll)
 }
 .score-caption {
   margin: 8px 0 0;
-  color: #666;
+  color: var(--ink-soft);
 }
 .score-tip {
   margin: 4px 0 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .sub-score {
@@ -405,7 +405,7 @@ onMounted(fetchAll)
 }
 .sub-score-label {
   width: 84px;
-  color: #666;
+  color: var(--ink-soft);
 }
 .tag-row {
   display: flex;
@@ -413,7 +413,7 @@ onMounted(fetchAll)
   gap: 4px;
 }
 .empty-text {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 </style>

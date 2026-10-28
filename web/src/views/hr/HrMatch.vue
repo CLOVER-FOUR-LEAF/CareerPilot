@@ -417,18 +417,18 @@ onBeforeUnmount(() => {
 }
 .form-hint {
   margin-top: 10px;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .muted {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .empty-box {
   padding: 40px 0;
 }
 .empty-sub {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
   margin-top: 4px;
 }
@@ -438,10 +438,10 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 .result-card {
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px 18px;
-  background: #fff;
+  background: var(--white);
 }
 .result-head {
   display: flex;
@@ -457,21 +457,21 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
-  background: #f5f5f5;
-  color: #8c8c8c;
+  background: var(--paper-2);
+  color: var(--muted);
   flex: none;
 }
 .rank-1 {
-  background: linear-gradient(135deg, #faad14, #fa8c16);
-  color: #fff;
+  background: linear-gradient(135deg, var(--warning), var(--accent));
+  color: var(--white);
 }
 .rank-2 {
-  background: linear-gradient(135deg, #bfbfbf, #8c8c8c);
-  color: #fff;
+  background: linear-gradient(135deg, var(--muted), var(--muted));
+  color: var(--white);
 }
 .rank-3 {
-  background: linear-gradient(135deg, #d4a373, #b07d4b);
-  color: #fff;
+  background: linear-gradient(135deg, var(--sand), var(--line-strong));
+  color: var(--white);
 }
 .result-title {
   display: flex;
@@ -492,7 +492,7 @@ onBeforeUnmount(() => {
   display: block;
   font-size: 10px;
   font-weight: 400;
-  color: #999;
+  color: var(--muted);
   margin-top: 4px;
 }
 .score-grid {
@@ -503,7 +503,7 @@ onBeforeUnmount(() => {
 }
 .score-item span {
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--muted);
 }
 .tag-row {
   display: flex;
@@ -513,16 +513,16 @@ onBeforeUnmount(() => {
 }
 .gap-collapse {
   margin-top: 12px;
-  background: #fafafa;
+  background: var(--paper-2);
   border-radius: 8px;
 }
 .gap-type {
-  color: #8c8c8c;
+  color: var(--muted);
   font-size: 12px;
   margin-right: 4px;
 }
 .gap-suggestion {
-  color: #595959;
+  color: var(--ink-soft);
 }
 .pending-box {
   margin-top: 12px;
@@ -531,8 +531,8 @@ onBeforeUnmount(() => {
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fff1f0;
-  color: #cf1322;
+  background: var(--accent-soft);
+  color: var(--danger);
   font-size: 13px;
 }
 .history-score {

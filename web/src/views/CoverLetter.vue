@@ -215,8 +215,8 @@ onMounted(fetchJdList)
 }
 .letter-body {
   padding: 20px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
   border-radius: 6px;
   line-height: 2;
   white-space: pre-wrap;
@@ -229,7 +229,7 @@ onMounted(fetchJdList)
   gap: 4px;
 }
 .empty-text {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .copy-btn {
@@ -237,7 +237,7 @@ onMounted(fetchJdList)
 }
 .task-status .hint {
   margin: 6px 0 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 </style>

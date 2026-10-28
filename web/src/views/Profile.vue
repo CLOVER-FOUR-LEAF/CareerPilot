@@ -394,7 +394,7 @@ watch(activeTab, (tab) => {
 }
 .member-icon {
   font-size: 32px;
-  color: #faad14;
+  color: var(--warning);
 }
 .member-level {
   margin: 0;
@@ -403,12 +403,12 @@ watch(activeTab, (tab) => {
 }
 .member-code {
   margin: 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .quota-hint {
   margin-top: 12px;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.8;
 }

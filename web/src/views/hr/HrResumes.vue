@@ -366,7 +366,7 @@ function statusColor(status: string) {
 }
 
 function avatarColor(title: string) {
-  const palette = ['#1677ff', '#722ed1', '#13c2c2', '#fa8c16', '#eb2f96']
+  const palette = ['#e4572e', '#1f3d2b', '#7a766b', '#b93a18', '#2c5740']
   let sum = 0
   for (const ch of title || '候') sum += ch.charCodeAt(0)
   return palette[sum % palette.length]
@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 .hint {
-  color: #1677ff;
+  color: var(--accent-deep);
   font-size: 12px;
 }
 .title-cell {
@@ -444,16 +444,16 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 .candidate-sub {
-  color: #999;
+  color: var(--muted);
   font-size: 11px;
   font-family: 'SFMono-Regular', Consolas, monospace;
 }
 .muted {
-  color: #999;
+  color: var(--muted);
 }
 .form-hint {
   margin-top: 4px;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .detail-body {
@@ -461,7 +461,7 @@ onBeforeUnmount(() => {
   line-height: 1.9;
   max-height: 60vh;
   overflow: auto;
-  background: #fafafa;
+  background: var(--paper-2);
   padding: 16px;
   border-radius: 8px;
 }
@@ -470,7 +470,7 @@ onBeforeUnmount(() => {
 }
 .ats-label {
   margin: 10px 0 2px;
-  color: #666;
+  color: var(--ink-soft);
 }
 .dimension-row {
   margin-bottom: 8px;
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: #595959;
+  color: var(--ink-soft);
 }
 .tag-row {
   display: flex;

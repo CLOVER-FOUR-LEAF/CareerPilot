@@ -117,6 +117,7 @@ CareerPilot/
 ```
 
 > 三端拆分（角色模型、路由矩阵、鉴权链路）见 [`docs/PLATFORM-SPLIT.md`](./docs/PLATFORM-SPLIT.md)。
+> 视觉系统（纸张 / 墨色 / 朱砂、字体与组件令牌）见 [`docs/UI-DESIGN.md`](./docs/UI-DESIGN.md)。
 > Nacos 接入评估见 [`docs/NACOS-PLAN.md`](./docs/NACOS-PLAN.md)。
 
 ---

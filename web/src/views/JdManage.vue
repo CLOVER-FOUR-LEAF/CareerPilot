@@ -10,7 +10,7 @@
 
     <!-- JD 列表：§3.2 分页包络，读 data.items -->
     <a-spin :spinning="loading">
-      <a-list :data-source="jdList">
+      <a-list v-if="jdList.length" :data-source="jdList">
         <template #renderItem="{ item }">
           <a-list-item>
             <a-card style="width: 100%">
@@ -54,7 +54,14 @@
       </a-list>
     </a-spin>
 
-    <a-empty v-if="!loading && jdList.length === 0" description="暂无 JD，点击上方按钮新建" />
+    <div v-if="!loading && jdList.length === 0" class="empty-state">
+      <span class="eyebrow">No JD yet</span>
+      <h3>还没有目标岗位</h3>
+      <p>粘贴一份 JD，系统会抽取硬技能、经验年限与职责，作为后续匹配与优化的基准。</p>
+      <a-button type="primary" @click="openCreate">
+        <PlusOutlined /> 新建第一份 JD
+      </a-button>
+    </div>
 
     <!-- 新建 JD：§3.1 -->
     <a-modal
@@ -334,20 +341,40 @@ onMounted(fetchJdList)
   gap: 12px;
 }
 .jd-company {
-  color: #999;
+  color: var(--muted);
   font-size: 13px;
   margin-left: 8px;
 }
 .jd-meta {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .parse-method {
   margin-left: 12px;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .tag-row {
   margin-bottom: 12px;
+}
+
+.empty-state {
+  max-width: 600px;
+  margin: 48px auto;
+  padding: 36px 34px;
+  border: 1px dashed var(--line-strong);
+  background: var(--white);
+}
+.empty-state h3 {
+  margin: 12px 0 8px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+}
+.empty-state p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
 }
 </style>

@@ -137,7 +137,7 @@ onMounted(load)
 }
 .meta {
   margin-top: 10px;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 </style>

@@ -87,9 +87,9 @@ onMounted(load)
 
 <style scoped>
 .summary {
-  color: #595959;
+  color: var(--ink-soft);
 }
-.ok { color: #52c41a; }
-.warn { color: #faad14; }
-.slow { color: #faad14; }
+.ok { color: var(--success); }
+.warn { color: var(--warning); }
+.slow { color: var(--warning); }
 </style>

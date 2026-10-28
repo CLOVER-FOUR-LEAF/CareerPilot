@@ -49,7 +49,7 @@ const columns = [
   { title: '操作人', dataIndex: 'actorId', key: 'actorId', width: 170 },
   { title: '动作', key: 'action', width: 170 },
   { title: '对象', key: 'target', width: 180 },
-  { title: '详情', key: 'detail' },
+  { title: '详情', key: 'detail', ellipsis: true },
   { title: '时间', key: 'createdAt', width: 170 },
 ]
 

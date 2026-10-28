@@ -247,7 +247,7 @@ onMounted(fetchJdList)
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
-  color: #666;
+  color: var(--ink-soft);
   font-weight: 600;
 }
 .copy-tag {
@@ -263,13 +263,13 @@ onMounted(fetchJdList)
   word-break: break-word;
 }
 .original {
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  color: #666;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
 }
 .rewritten {
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: var(--forest-soft);
+  border: 1px solid var(--forest-soft);
 }
 .tag-row {
   display: flex;
@@ -278,13 +278,13 @@ onMounted(fetchJdList)
 }
 .change-note {
   color: #555;
-  background: #fafafa;
+  background: var(--paper-2);
   padding: 10px 12px;
   border-radius: 6px;
 }
 .task-status .hint {
   margin: 6px 0 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 </style>

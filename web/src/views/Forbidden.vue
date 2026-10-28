@@ -39,7 +39,7 @@ function goHome() {
   justify-content: center;
 }
 .hint {
-  color: #999;
+  color: var(--muted);
   font-size: 13px;
 }
 </style>

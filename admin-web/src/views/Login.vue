@@ -63,35 +63,100 @@ async function handleLogin() {
 
 <style scoped>
 .login-container {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1f2a44 0%, #3b1d3f 100%);
+  padding: 40px 20px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(228, 87, 46, 0.16), transparent 34%),
+    radial-gradient(circle at 85% 90%, rgba(31, 61, 43, 0.1), transparent 34%),
+    var(--paper);
+  overflow: hidden;
 }
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 92px 92px;
+  opacity: 0.4;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+  pointer-events: none;
+}
+
 .login-card {
-  width: 420px;
-  padding: 40px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  position: relative;
+  z-index: 1;
+  width: 440px;
+  max-width: 100%;
+  padding: 44px 40px 34px;
+  background: var(--white);
+  border: 1px solid var(--line-strong);
+  box-shadow: 10px 10px 0 rgba(23, 23, 20, 0.1);
 }
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent);
+}
+
 .login-header {
-  text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 30px;
 }
+
 .login-header h1 {
-  font-size: 26px;
-  color: #ff4d4f;
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
 }
+
 .login-header p {
-  color: #999;
-  margin-top: 8px;
+  margin: 9px 0 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
+
 .login-footer {
+  margin-top: 20px;
   text-align: center;
-  color: #666;
-  font-size: 13px;
+  color: var(--muted);
+  font-size: 12px;
 }
+
+.login-footer a {
+  color: var(--accent-deep);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(185, 58, 24, 0.4);
+}
+
+@media (max-width: 520px) {
+  .login-container {
+    padding: 22px 14px;
+  }
+  .login-card {
+    padding: 34px 24px 28px;
+  }
+  .login-header h1 {
+    font-size: 34px;
+  }
+}
+
 </style>

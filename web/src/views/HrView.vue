@@ -504,10 +504,10 @@ onMounted(async () => {
   margin: 0 0 12px;
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--ink);
 }
 .history-time {
-  color: #999;
+  color: var(--muted);
   font-size: 11px;
   margin-top: 2px;
 }
@@ -528,7 +528,7 @@ onMounted(async () => {
   flex: 1;
   height: 14px;
   border-radius: 7px;
-  background: #f0f0f0;
+  background: var(--line);
   overflow: hidden;
 }
 .bar-require {
@@ -536,14 +536,14 @@ onMounted(async () => {
   left: 0;
   top: 0;
   height: 100%;
-  background: #91caff;
+  background: var(--line-strong);
 }
 .bar-evidence {
   position: absolute;
   left: 0;
   top: 0;
   height: 100%;
-  background: #52c41a;
+  background: var(--success);
   opacity: 0.75;
 }
 .coverage-level {
@@ -561,7 +561,7 @@ onMounted(async () => {
 }
 .gap-level {
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
 }
 .gap-content {
   margin: 6px 0 4px;
@@ -570,21 +570,21 @@ onMounted(async () => {
 .gap-explanation {
   margin: 0 0 4px;
   font-size: 13px;
-  color: #666;
+  color: var(--ink-soft);
   line-height: 1.7;
 }
 .gap-evidence {
   margin: 0;
   font-size: 12px;
   color: #888;
-  background: #fafafa;
+  background: var(--paper-2);
   padding: 6px 8px;
   border-radius: 4px;
 }
 .evidence-label {
   display: inline-block;
   margin-right: 6px;
-  color: #999;
+  color: var(--muted);
 }
 .q-intent {
   margin: 0 0 10px;
@@ -592,7 +592,7 @@ onMounted(async () => {
   color: #555;
 }
 .label {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
   margin-right: 6px;
 }
@@ -618,7 +618,7 @@ onMounted(async () => {
 }
 .record-meta {
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
 }
 .record-reason {
   margin: 6px 0 2px;
@@ -639,7 +639,7 @@ onMounted(async () => {
 .hint {
   margin: 6px 0 0;
   font-size: 12px;
-  color: #999;
+  color: var(--muted);
 }
 .task-status .hint {
   margin-top: 6px;

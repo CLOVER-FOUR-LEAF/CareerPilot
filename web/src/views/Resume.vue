@@ -1,6 +1,6 @@
 <template>
   <div class="resume-page">
-    <a-page-header title="简历管理" sub-title="上传简历，获取 ATS 智能评分">
+    <a-page-header title="简历分析" sub-title="上传简历，获取 ATS 智能评分与竞争力建议">
       <template #extra>
         <a-button type="primary" @click="openUpload">
           <UploadOutlined /> 上传简历
@@ -11,6 +11,7 @@
     <!-- 简历列表：§2.2 分页包络，读 data.items -->
     <a-spin :spinning="loading">
       <a-list
+        v-if="resumes.length"
         :grid="{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3 }"
         :data-source="resumes"
       >
@@ -74,7 +75,14 @@
       </a-list>
     </a-spin>
 
-    <a-empty v-if="!loading && resumes.length === 0" description="暂无简历，点击上方按钮上传" />
+    <div v-if="!loading && resumes.length === 0" class="empty-state">
+      <span class="eyebrow">No resume yet</span>
+      <h3>还没有简历</h3>
+      <p>上传第一份简历，系统会自动解析并给出 ATS 评分，之后才能进行岗位匹配与优化。</p>
+      <a-button type="primary" @click="openUpload">
+        <UploadOutlined /> 上传第一份简历
+      </a-button>
+    </div>
 
     <!-- 上传弹窗：§2.1 multipart -->
     <a-modal
@@ -442,7 +450,7 @@ onMounted(fetchResumes)
   margin: 12px 0;
 }
 .card-time {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .card-actions {
@@ -460,7 +468,7 @@ onMounted(fetchResumes)
   text-align: center;
 }
 .score-meta {
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 .tag-row {
@@ -470,11 +478,31 @@ onMounted(fetchResumes)
   max-height: 60vh;
   overflow: auto;
   padding: 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
   border-radius: 6px;
   line-height: 1.9;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.empty-state {
+  max-width: 600px;
+  margin: 48px auto;
+  padding: 36px 34px;
+  border: 1px dashed var(--line-strong);
+  background: var(--white);
+}
+.empty-state h3 {
+  margin: 12px 0 8px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+}
+.empty-state p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
 }
 </style>

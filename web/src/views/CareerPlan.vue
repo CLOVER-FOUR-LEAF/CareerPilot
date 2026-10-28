@@ -193,8 +193,8 @@ onMounted(() => {
 }
 .summary {
   padding: 16px;
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
+  background: var(--forest-soft);
+  border: 1px solid var(--forest-soft);
   border-radius: 6px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -210,7 +210,7 @@ onMounted(() => {
   gap: 8px;
 }
 .phase-goal {
-  color: #666;
+  color: var(--ink-soft);
 }
 .action-list {
   margin: 6px 0 0;
@@ -219,7 +219,7 @@ onMounted(() => {
 }
 .milestone {
   margin-top: 6px;
-  color: #fa8c16;
+  color: var(--accent);
 }
 .doc-row {
   margin-top: 8px;
@@ -234,7 +234,7 @@ onMounted(() => {
 }
 .task-status .hint {
   margin: 6px 0 0;
-  color: #999;
+  color: var(--muted);
   font-size: 12px;
 }
 </style>
