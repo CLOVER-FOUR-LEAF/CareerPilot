@@ -37,7 +37,7 @@
       <section class="form-panel">
         <div class="form-head">
           <h2>{{ isRecruiterPortal ? '进入招聘工作台' : '进入求职工作台' }}</h2>
-          <p>{{ isRecruiterPortal ? '使用平台管理员开通的招聘方账号登录' : '登录后继续你的求职链路' }}</p>
+          <p>{{ isRecruiterPortal ? '使用招聘方账号登录，支持自助注册' : '登录后继续你的求职链路' }}</p>
         </div>
 
         <a-form
@@ -80,16 +80,21 @@
 
         <div v-if="!isRecruiterPortal" class="form-footer">
           还没有账号？
-          <router-link :to="{ path: '/register' }">立即注册</router-link>
+          <router-link :to="{ path: '/register', query: { role: 'seeker' } }">立即注册</router-link>
         </div>
-        <a-alert
-          v-else
-          type="info"
-          show-icon
-          message="招聘方账号由平台管理员开通"
-          description="自助注册一律是求职者账号。需要招聘方权限时，请联系平台管理员为你提升角色。"
-          class="recruiter-tip"
-        />
+        <template v-else>
+          <a-alert
+            type="info"
+            show-icon
+            message="招聘方账号可以自助注册"
+            description="注册招聘方账号后即可导入候选人简历、创建岗位 JD 并做匹配与洞察。只有管理员账号需要平台授予。"
+            class="recruiter-tip"
+          />
+          <div class="form-footer">
+            还没有招聘方账号？
+            <router-link :to="{ path: '/register', query: { role: 'recruiter' } }">立即注册</router-link>
+          </div>
+        </template>
 
         <div class="form-footer admin-entry">
           <router-link to="/">返回首页</router-link>

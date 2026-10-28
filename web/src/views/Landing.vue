@@ -9,11 +9,16 @@
           <span class="brand-sub">CAREER INTELLIGENCE</span>
         </div>
 
-        <nav class="nav-links">
+        <nav v-if="!userStore.isLoggedIn" class="nav-links">
           <a href="#problems">解决什么问题</a>
           <a href="#seeker">求职者</a>
           <a href="#recruiter">招聘方</a>
           <a href="#how">工作原理</a>
+        </nav>
+        <nav v-else class="nav-links">
+          <a href="#role-features">能力</a>
+          <a href="#role-workflow">怎么用</a>
+          <a href="#role-next">下一步</a>
         </nav>
 
         <div class="nav-actions">
@@ -23,13 +28,16 @@
           </template>
           <template v-else>
             <a-tag class="role-tag">{{ userStore.roleLabel }}</a-tag>
-            <a-button type="primary" @click="goHome">进入工作台</a-button>
+            <a-button type="primary" @click="goHome">
+              进入{{ userStore.canAccessHr ? '招聘' : '求职' }}工作台
+            </a-button>
+            <a-button type="text" class="landing-logout" @click="handleLogout">退出</a-button>
           </template>
         </div>
       </div>
     </header>
 
-    <main>
+    <main v-if="!userStore.isLoggedIn">
       <!-- ── Hero ───────────────────────────────────────── -->
       <section class="hero">
         <div class="hero-bg" />
@@ -235,6 +243,219 @@
       </section>
     </main>
 
+    <!-- ── 登录后的求职者首页 ───────────────────────────── -->
+    <main v-else-if="userStore.isSeeker" class="role-home">
+      <section class="role-hero">
+        <div class="role-hero-inner">
+          <div class="role-hero-copy">
+            <span class="eyebrow">Candidate home / {{ today }}</span>
+            <h1>
+              欢迎回来，{{ userStore.nickname || '求职者' }}。<br />
+              <em>继续你的求职证据链。</em>
+            </h1>
+            <p class="role-hero-desc">
+              从简历竞争力分析开始，依次完成岗位匹配、简历优化与模拟面试。
+              每一步的产出都会成为下一步的输入，不需要从零重来。
+            </p>
+            <div class="hero-actions">
+              <a-button type="primary" size="large" @click="goHome">
+                进入求职工作台 <ArrowRightOutlined />
+              </a-button>
+              <a-button size="large" class="ghost-btn" @click="router.push(nextStep.path)">
+                {{ nextStep.action }}
+              </a-button>
+            </div>
+          </div>
+
+          <div class="role-hero-side">
+            <span class="eyebrow">Your ledger</span>
+            <div class="role-metrics">
+              <div v-for="metric in roleMetrics" :key="metric.label">
+                <span>{{ metric.label }}</span>
+                <strong>{{ metric.value }}</strong>
+              </div>
+            </div>
+            <div id="role-next" class="role-next">
+              <span class="eyebrow">Recommended next</span>
+              <h3>{{ nextStep.title }}</h3>
+              <p>{{ nextStep.desc }}</p>
+              <a-button type="link" @click="router.push(nextStep.path)">
+                直达 <ArrowRightOutlined />
+              </a-button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="role-features" class="section role-section">
+        <div class="section-head">
+          <span class="section-kicker">Your toolkit</span>
+          <h2>七个能力，接住你的每一步</h2>
+          <p>每个能力都可以单独使用；连起来就是一条从诊断到演练的求职链路。</p>
+        </div>
+        <div class="role-feature-grid">
+          <button
+            v-for="(item, index) in seekerFeatures"
+            :key="item.title"
+            type="button"
+            class="role-feature"
+            @click="router.push(item.path)"
+          >
+            <span class="role-feature-index">0{{ index + 1 }}</span>
+            <component :is="item.icon" class="role-feature-icon" />
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.desc }}</p>
+            <span class="role-feature-tag">{{ item.tag }} <ArrowRightOutlined /></span>
+          </button>
+        </div>
+      </section>
+
+      <section id="role-workflow" class="section section-tinted role-section">
+        <div class="section-head">
+          <span class="section-kicker">Workflow</span>
+          <h2>一条建议的推进顺序</h2>
+          <p>不用一次做完。先拿到分数和差距，再决定优化、面试或换岗位。</p>
+        </div>
+        <div class="role-workflow">
+          <button
+            v-for="(step, index) in seekerWorkflow"
+            :key="step.title"
+            type="button"
+            class="role-step"
+            @click="router.push(step.path)"
+          >
+            <span class="role-step-no">0{{ index + 1 }}</span>
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.desc }}</p>
+            <span class="role-step-link">直达 <ArrowRightOutlined /></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="role-cta">
+        <div>
+          <span class="eyebrow">Ready when you are</span>
+          <h2>工作台里，所有记录都在。</h2>
+          <p>简历、JD、匹配与练习结果统一归档，随时接着上次的进度继续。</p>
+        </div>
+        <a-button type="primary" size="large" @click="goHome">
+          进入求职工作台 <ArrowRightOutlined />
+        </a-button>
+      </section>
+    </main>
+
+    <!-- ── 登录后的招聘方首页 ───────────────────────────── -->
+    <main v-else class="role-home">
+      <section class="role-hero">
+        <div class="role-hero-inner">
+          <div class="role-hero-copy">
+            <span class="eyebrow">Recruiter home / {{ today }}</span>
+            <h1>
+              欢迎回来，{{ userStore.nickname || '招聘方' }}。<br />
+              <em>把简历，变成证据。</em>
+            </h1>
+            <p class="role-hero-desc">
+              导入你已收到的候选人简历，创建岗位 JD，做批量匹配与深度洞察。
+              只分析你主动导入的简历，不涉及投递、站内沟通与全站人才库检索。
+            </p>
+            <div class="hero-actions">
+              <a-button type="primary" size="large" @click="goHome">
+                进入招聘工作台 <ArrowRightOutlined />
+              </a-button>
+              <a-button size="large" class="ghost-btn" @click="router.push(nextStep.path)">
+                {{ nextStep.action }}
+              </a-button>
+              <a-button v-if="userStore.isAdmin" size="large" :href="adminUrl">
+                管理后台
+              </a-button>
+            </div>
+          </div>
+
+          <div class="role-hero-side">
+            <span class="eyebrow">Your ledger</span>
+            <div class="role-metrics">
+              <div v-for="metric in roleMetrics" :key="metric.label">
+                <span>{{ metric.label }}</span>
+                <strong>{{ metric.value }}</strong>
+              </div>
+            </div>
+            <div id="role-next" class="role-next">
+              <span class="eyebrow">Recommended next</span>
+              <h3>{{ nextStep.title }}</h3>
+              <p>{{ nextStep.desc }}</p>
+              <a-button type="link" @click="router.push(nextStep.path)">
+                直达 <ArrowRightOutlined />
+              </a-button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="role-features" class="section role-section">
+        <div class="section-head">
+          <span class="section-kicker">Hiring toolkit</span>
+          <h2>从简历到证据，五个动作</h2>
+          <p>不做招聘平台的全套流程，只把你已经收到的简历分析透。</p>
+        </div>
+        <div class="role-feature-grid hr-role-features">
+          <button
+            v-for="(item, index) in hrFeatures"
+            :key="item.title"
+            type="button"
+            class="role-feature"
+            @click="router.push(item.path)"
+          >
+            <span class="role-feature-index">0{{ index + 1 }}</span>
+            <component :is="item.icon" class="role-feature-icon" />
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.desc }}</p>
+            <span class="role-feature-tag">{{ item.tag }} <ArrowRightOutlined /></span>
+          </button>
+        </div>
+
+        <div class="boundary">
+          <SafetyCertificateOutlined />
+          <div>
+            <strong>刻意不做的三件事</strong>
+            <span>不提供职位投递与候选人沟通 · 不允许跨用户检索简历 · 不输出自动录用 / 淘汰结论。</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="role-workflow" class="section section-tinted role-section">
+        <div class="section-head">
+          <span class="section-kicker">Workflow</span>
+          <h2>一条建议的推进顺序</h2>
+          <p>先建立岗位基准，再导入候选人简历，最后用匹配分和验证问题聚焦面试。</p>
+        </div>
+        <div class="role-workflow">
+          <button
+            v-for="(step, index) in recruiterWorkflow"
+            :key="step.title"
+            type="button"
+            class="role-step"
+            @click="router.push(step.path)"
+          >
+            <span class="role-step-no">0{{ index + 1 }}</span>
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.desc }}</p>
+            <span class="role-step-link">直达 <ArrowRightOutlined /></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="role-cta">
+        <div>
+          <span class="eyebrow">Ready when you are</span>
+          <h2>把下一批简历，变成可比较的证据。</h2>
+          <p>候选人、岗位、匹配记录与洞察报告都在工作台里统一归档。</p>
+        </div>
+        <a-button type="primary" size="large" @click="goHome">
+          进入招聘工作台 <ArrowRightOutlined />
+        </a-button>
+      </section>
+    </main>
+
     <footer class="footer">
       <div class="footer-inner">
         <div class="footer-brand">
@@ -243,8 +464,15 @@
         </div>
         <div class="footer-links">
           <a :href="adminUrl">平台管理端</a>
-          <a href="#problems">产品能力</a>
-          <a href="#how">工作原理</a>
+          <template v-if="!userStore.isLoggedIn">
+            <a href="#problems">产品能力</a>
+            <a href="#how">工作原理</a>
+          </template>
+          <template v-else>
+            <a href="#role-features">能力</a>
+            <a href="#role-workflow">怎么用</a>
+            <a @click="goHome">工作台</a>
+          </template>
         </div>
         <div class="footer-note">© 2026 CareerPilot · 分析结果仅作辅助参考，最终判断由用户作出</div>
       </div>
@@ -253,7 +481,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   AimOutlined,
@@ -274,12 +502,116 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { hrApi, jdApi, matchApi, resumeApi } from '@/api'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const adminUrl = import.meta.env.VITE_ADMIN_URL
   || `${window.location.protocol}//${window.location.hostname}:3100`
+
+/** 登录后首页的台账数字；首页推荐不是关键路径，失败保持 0 */
+const counts = reactive({
+  resume: 0,
+  jd: 0,
+  match: 0,
+  insight: 0,
+})
+
+const today = computed(() => {
+  const date = new Date()
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
+})
+
+const roleMetrics = computed(() => {
+  if (userStore.canAccessHr) {
+    return [
+      { label: '候选人', value: counts.resume },
+      { label: '岗位 JD', value: counts.jd },
+      { label: '匹配', value: counts.match },
+      { label: '洞察', value: counts.insight },
+    ]
+  }
+  return [
+    { label: '简历', value: counts.resume },
+    { label: '目标岗位', value: counts.jd },
+    { label: '匹配记录', value: counts.match },
+  ]
+})
+
+const nextStep = computed(() => {
+  if (userStore.canAccessHr) {
+    if (counts.resume === 0) {
+      return {
+        title: '导入候选人简历',
+        desc: '把你已经收到的候选人简历导入工作台，系统会自动解析并做 ATS 评分。',
+        path: '/hr/resumes?upload=1',
+        action: '导入简历',
+      }
+    }
+    if (counts.jd === 0) {
+      return {
+        title: '创建岗位 JD',
+        desc: '先建立岗位基准，后续的匹配与洞察才有统一口径。',
+        path: '/hr/jds?create=1',
+        action: '创建 JD',
+      }
+    }
+    if (counts.match === 0) {
+      return {
+        title: '开始批量匹配',
+        desc: '把候选人简历与岗位放在一起，按综合分排序后再决定面试顺序。',
+        path: '/hr/match',
+        action: '开始匹配',
+      }
+    }
+    if (counts.insight === 0) {
+      return {
+        title: '生成深度洞察',
+        desc: '拆解能力覆盖与证据缺口，得到面试官可以直接使用的验证问题。',
+        path: '/hr/insight',
+        action: '生成洞察',
+      }
+    }
+    return {
+      title: '继续岗位匹配',
+      desc: '新增候选人后，回到匹配页刷新排序；需要时再生成洞察报告。',
+      path: '/hr/match',
+      action: '去匹配',
+    }
+  }
+
+  if (counts.resume === 0) {
+    return {
+      title: '先让简历可读',
+      desc: '上传一份简历，拿到 ATS 总分、维度分与可执行的结构建议。',
+      path: '/seeker/resume',
+      action: '上传简历',
+    }
+  }
+  if (counts.jd === 0) {
+    return {
+      title: '建立目标岗位',
+      desc: '粘贴一份 JD，抽取硬技能、经验年限与职责，形成可对比的岗位画像。',
+      path: '/seeker/jd',
+      action: '新建 JD',
+    }
+  }
+  if (counts.match === 0) {
+    return {
+      title: '做一次匹配',
+      desc: '把简历和目标岗位放在一起，看看总分、分项分与差距清单。',
+      path: '/seeker/match',
+      action: '开始匹配',
+    }
+  }
+  return {
+    title: '进入模拟面试',
+    desc: '用差距清单生成多轮追问，逐轮练习 STAR 表达并拿到反馈。',
+    path: '/seeker/interview',
+    action: '开始面试',
+  }
+})
 
 const previewBars = [
   { label: '语义匹配', value: 86, color: '#e4572e' },
@@ -288,21 +620,35 @@ const previewBars = [
 ]
 
 const seekerFeatures = [
-  { title: '简历竞争力分析', desc: 'ATS 多维度评分：结构、关键词、量化结果与可读性，逐项给出改进建议。', tag: 'ATS 评分', icon: FileTextOutlined, bg: 'linear-gradient(135deg, #e6f4ff, #bae0ff)' },
-  { title: 'JD 智能解析', desc: '粘贴职位描述，自动抽取硬技能、经验年限、学历与职责，形成可对比的岗位画像。', tag: '结构化 JD', icon: FileSearchOutlined, bg: 'linear-gradient(135deg, #f0f5ff, #d6e4ff)' },
-  { title: '岗位匹配打分', desc: '语义 40% + 关键词 35% + 业务规则 25%，输出总分与按严重度排序的差距清单。', tag: '三段式打分', icon: AimOutlined, bg: 'linear-gradient(135deg, #e6fffb, #b5f5ec)' },
-  { title: '简历优化', desc: '针对目标 JD 重写经历描述，补足 STAR 结构，标出新增技能与改动理由。', tag: 'STAR 重写', icon: EditOutlined, bg: 'linear-gradient(135deg, #f9f0ff, #efdbff)' },
-  { title: '模拟面试', desc: '按差距生成多轮追问，逐轮评分并检查 Situation / Task / Action / Result 覆盖。', tag: '多轮追问', icon: SolutionOutlined, bg: 'linear-gradient(135deg, #fff7e6, #ffd8bf)' },
-  { title: '求职信生成', desc: '按岗位与语气生成求职信，突出最相关的技能与经历，避免空泛套话。', tag: '一岗一封', icon: MailOutlined, bg: 'linear-gradient(135deg, #fff0f6, #ffd6e7)' },
-  { title: '职业规划', desc: '结合目标岗位与现有能力，给出分阶段路线图、技能缺口与可执行动作。', tag: '分阶段路线', icon: RocketOutlined, bg: 'linear-gradient(135deg, #f6ffed, #d9f7be)' },
+  { title: '简历竞争力分析', desc: 'ATS 多维度评分：结构、关键词、量化结果与可读性，逐项给出改进建议。', tag: 'ATS 评分', icon: FileTextOutlined, path: '/seeker/resume' },
+  { title: 'JD 智能解析', desc: '粘贴职位描述，自动抽取硬技能、经验年限、学历与职责，形成可对比的岗位画像。', tag: '结构化 JD', icon: FileSearchOutlined, path: '/seeker/jd' },
+  { title: '岗位匹配打分', desc: '语义 40% + 关键词 35% + 业务规则 25%，输出总分与按严重度排序的差距清单。', tag: '三段式打分', icon: AimOutlined, path: '/seeker/match' },
+  { title: '简历优化', desc: '针对目标 JD 重写经历描述，补足 STAR 结构，标出新增技能与改动理由。', tag: 'STAR 重写', icon: EditOutlined, path: '/seeker/optimize' },
+  { title: '模拟面试', desc: '按差距生成多轮追问，逐轮评分并检查 Situation / Task / Action / Result 覆盖。', tag: '多轮追问', icon: SolutionOutlined, path: '/seeker/interview' },
+  { title: '求职信生成', desc: '按岗位与语气生成求职信，突出最相关的技能与经历，避免空泛套话。', tag: '一岗一封', icon: MailOutlined, path: '/seeker/cover-letter' },
+  { title: '职业规划', desc: '结合目标岗位与现有能力，给出分阶段路线图、技能缺口与可执行动作。', tag: '分阶段路线', icon: RocketOutlined, path: '/seeker/career-plan' },
 ]
 
 const hrFeatures = [
-  { title: '候选人简历集中管理', desc: '上传你已收到的候选人简历，统一查看解析状态、ATS 评分与全文。', tag: '本地导入', icon: FileTextOutlined, bg: 'linear-gradient(135deg, #e6f4ff, #bae0ff)' },
-  { title: '岗位 JD 管理', desc: '为每个在招岗位维护结构化 JD，作为后续匹配与洞察的统一基准。', tag: '岗位基准', icon: FileSearchOutlined, bg: 'linear-gradient(135deg, #f0f5ff, #d6e4ff)' },
-  { title: '岗位匹配排序', desc: '多份简历对同一 JD 批量打分，按综合分排序，快速缩小面试范围。', tag: '批量对比', icon: BarChartOutlined, bg: 'linear-gradient(135deg, #e6fffb, #b5f5ec)' },
-  { title: '深度洞察', desc: '拆解能力维度覆盖，定位证据缺口，生成面试官可直接使用的验证问题。', tag: '证据缺口', icon: ThunderboltOutlined, bg: 'linear-gradient(135deg, #fff7e6, #ffd8bf)' },
-  { title: '追问判定与留痕', desc: '录入面试官听到的回答，判定 demonstrated / adjacent / not_evidenced，保留判断依据。', tag: '可追溯', icon: SafetyCertificateOutlined, bg: 'linear-gradient(135deg, #f9f0ff, #efdbff)' },
+  { title: '候选人简历集中管理', desc: '上传你已收到的候选人简历，统一查看解析状态、ATS 评分与全文。', tag: '本地导入', icon: FileTextOutlined, path: '/hr/resumes' },
+  { title: '岗位 JD 管理', desc: '为每个在招岗位维护结构化 JD，作为后续匹配与洞察的统一基准。', tag: '岗位基准', icon: FileSearchOutlined, path: '/hr/jds' },
+  { title: '岗位匹配排序', desc: '多份简历对同一 JD 批量打分，按综合分排序，快速缩小面试范围。', tag: '批量对比', icon: BarChartOutlined, path: '/hr/match' },
+  { title: '深度洞察', desc: '拆解能力维度覆盖，定位证据缺口，生成面试官可直接使用的验证问题。', tag: '证据缺口', icon: ThunderboltOutlined, path: '/hr/insight' },
+  { title: '追问判定与留痕', desc: '录入面试官听到的回答，判定 demonstrated / adjacent / not_evidenced，保留判断依据。', tag: '可追溯', icon: SafetyCertificateOutlined, path: '/hr/insight' },
+]
+
+const seekerWorkflow = [
+  { title: '先做简历诊断', desc: '上传简历，拿到 ATS 总分、维度分与可执行建议。', path: '/seeker/resume' },
+  { title: '锁定目标岗位', desc: '粘贴 JD，抽取硬技能与经验要求，形成岗位画像。', path: '/seeker/jd' },
+  { title: '看清差距', desc: '简历 × JD 三段式打分，按严重度查看 gap 清单。', path: '/seeker/match' },
+  { title: '优化与演练', desc: '按差距重写经历，再用模拟面试练习 STAR 表达。', path: '/seeker/optimize' },
+]
+
+const recruiterWorkflow = [
+  { title: '创建岗位基准', desc: '为在招岗位维护结构化 JD，统一后续匹配口径。', path: '/hr/jds' },
+  { title: '导入候选人简历', desc: '上传你已收到的简历，自动解析并做 ATS 评分。', path: '/hr/resumes' },
+  { title: '批量岗位匹配', desc: '多份简历对同一 JD 打分，按综合分排序。', path: '/hr/match' },
+  { title: '生成深度洞察', desc: '拆解能力覆盖，生成面试官可直接使用的验证问题。', path: '/hr/insight' },
 ]
 
 const steps = [
@@ -340,6 +686,32 @@ function goLogin(role: 'seeker' | 'recruiter') {
 function goHome() {
   router.push(currentHome.value)
 }
+
+async function handleLogout() {
+  await userStore.logout()
+  router.push('/')
+}
+
+onMounted(async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const [resumes, jds, matches] = await Promise.all([
+      resumeApi.list({ page: 1, size: 1 }),
+      jdApi.list({ page: 1, size: 1 }),
+      matchApi.list({ page: 1, size: 1 }),
+    ])
+    counts.resume = resumes.data?.total ?? 0
+    counts.jd = jds.data?.total ?? 0
+    counts.match = matches.data?.total ?? 0
+
+    if (userStore.canAccessHr) {
+      const insights = await hrApi.listInsights({ page: 1, size: 1 })
+      counts.insight = insights.data?.total ?? 0
+    }
+  } catch {
+    // 首页推荐失败不影响页面主体
+  }
+})
 </script>
 
 <style scoped>
@@ -1424,6 +1796,386 @@ function goHome() {
   }
   .floating-card {
     display: none;
+  }
+}
+
+
+/* ── 登录后的角色首页 ───────────────────────────────────────────────── */
+
+.landing-logout {
+  font-size: 12px !important;
+  color: var(--muted) !important;
+}
+
+.role-hero {
+  position: relative;
+  padding: 88px 24px 92px;
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.role-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 86px 86px;
+  opacity: 0.4;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 82%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 82%);
+  pointer-events: none;
+}
+
+.role-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--max);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 64px;
+  align-items: start;
+}
+
+.role-hero-copy h1 {
+  margin: 22px 0 24px;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 3.8vw, 54px);
+  font-weight: 600;
+  line-height: 0.99;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+
+.role-hero-copy h1 em {
+  font-style: italic;
+  color: var(--accent-deep);
+}
+
+.role-hero-desc {
+  max-width: 560px;
+  margin: 0 0 30px;
+  padding-left: 18px;
+  border-left: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.role-hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-left: 32px;
+  border-left: 1px solid var(--line);
+}
+
+.role-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.role-metrics > div {
+  padding: 14px 15px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.role-metrics span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.role-metrics strong {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+.role-next {
+  padding: 20px 22px;
+  background: var(--ink);
+  color: var(--paper);
+  border-left: 4px solid var(--accent);
+}
+
+.role-next .eyebrow {
+  color: var(--sand);
+}
+
+.role-next h3 {
+  margin: 10px 0 6px;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.role-next p {
+  margin: 0 0 8px;
+  color: rgba(255, 253, 248, 0.58);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.role-next :deep(.ant-btn-link) {
+  padding: 0;
+  color: var(--sand) !important;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.role-section {
+  position: relative;
+}
+
+.role-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.role-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 26px 26px 24px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.role-feature:hover {
+  background: var(--white);
+}
+
+.role-feature-index {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.role-feature-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-top: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--white);
+  color: var(--accent);
+  font-size: 17px;
+}
+
+.role-feature h3 {
+  margin: 16px 0 7px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.role-feature p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.role-feature-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+}
+
+.role-workflow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  background: var(--white);
+}
+
+.role-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px 22px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.role-step:hover {
+  background: var(--paper-2);
+}
+
+.role-step-no {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.role-step h3 {
+  margin: 16px 0 7px;
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.role-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.role-step-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 18px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+}
+
+.role-cta {
+  position: relative;
+  max-width: var(--max);
+  margin: 0 auto 90px;
+  padding: 46px 52px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 26px;
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.role-cta::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--accent);
+}
+
+.role-cta .eyebrow {
+  color: var(--sand);
+}
+
+.role-cta h2 {
+  margin: 10px 0 8px;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.2vw, 42px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+}
+
+.role-cta p {
+  margin: 0;
+  color: rgba(255, 253, 248, 0.55);
+  font-size: 13px;
+}
+
+@media (max-width: 1080px) {
+  .role-hero-inner {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .role-hero-side {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 26px;
+  }
+  .role-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .role-workflow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .role-hero {
+    padding: 58px 18px 64px;
+  }
+  .role-hero-copy h1 {
+    font-size: clamp(30px, 8vw, 42px);
+  }
+  .role-feature-grid,
+  .role-workflow {
+    grid-template-columns: 1fr;
+  }
+  .role-cta {
+    margin: 0 18px 56px;
+    padding: 32px 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .role-tag,
+  .landing-logout {
+    display: none !important;
+  }
+  .nav-actions :deep(.ant-btn-primary) {
+    font-size: 12px;
+    padding: 0 12px;
   }
 }
 

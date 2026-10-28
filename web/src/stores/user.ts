@@ -17,6 +17,7 @@ export interface RegisterPayload {
   password: string
   nickname?: string
   inviteCode?: string | null
+  role?: 'USER' | 'RECRUITER'
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -63,6 +64,7 @@ export const useUserStore = defineStore('user', () => {
       password: payload.password,
       nickname: payload.nickname,
       inviteCode: payload.inviteCode ?? null,
+      role: payload.role ?? 'USER',
     })
     return applyAuth(res)
   }

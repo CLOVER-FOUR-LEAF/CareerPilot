@@ -198,7 +198,7 @@ powershell -File scripts\local\start-all.ps1
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:3000 | 官网首页（项目介绍 + 求职者 / 招聘者双入口） |
+| http://localhost:3000 | 三态首页：未登录=项目介绍+双入口；已登录=对应角色首页 |
 | http://localhost:3000/seeker/dashboard | 求职者工作台（需 USER） |
 | http://localhost:3000/hr/dashboard | 招聘方工作台（需 RECRUITER / ADMIN） |
 | http://localhost:3100 | 管理端（仅 ADMIN）：概览 / 用户行为 / Agent 配置 / 配置 / 健康 / 审计 |
@@ -214,6 +214,8 @@ powershell -File scripts\local\start-all.ps1
 | `user@demo.local` | `User1234` | USER |
 | `hr@demo.local` | `Abcd1234` | RECRUITER |
 | `admin@demo.local` | `Admin1234` | ADMIN |
+
+> 求职者与招聘方都支持在 `/register?role=...` 自助注册；只有 `ADMIN` 需要部署方授予。
 
 ### 4. 分步启动 / 状态 / 停止
 

@@ -87,6 +87,11 @@ public class AuthService {
             return ApiResponse.error(1409, "邮箱已被注册");
         }
 
+        String role = normalizeSelfRegisterRole(request.getRole());
+        if (role == null) {
+            return ApiResponse.error(1400, "自助注册只能选择求职者（USER）或招聘方（RECRUITER）");
+        }
+
         String userId = "usr_" + IdUtil.fastSimpleUUID().substring(0, 16);
         LocalDateTime now = LocalDateTime.now();
 
@@ -96,8 +101,8 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setNickname(resolveNickname(request));
         user.setStatus(1);
-        // 自助注册一律是最小权限；RECRUITER / ADMIN 只能由管理端授予
-        user.setRole(ROLE_USER);
+        // 求职者与招聘方都可以自助注册；ADMIN 仍然只能由管理端授予
+        user.setRole(role);
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         userMapper.insert(user);
@@ -124,6 +129,23 @@ public class AuthService {
         userMapper.updateById(user);
 
         return ApiResponse.success(buildLoginResponse(user, membership));
+    }
+
+    /**
+     * 自助注册的可选角色。
+     *
+     * <p>返回 null 表示请求了不允许自助注册的角色（例如 ADMIN）。
+     * 这样比抛异常更容易在 Controller 层统一返回业务错误码。
+     */
+    private static String normalizeSelfRegisterRole(String requestedRole) {
+        if (requestedRole == null || requestedRole.isBlank()) {
+            return ROLE_USER;
+        }
+        String normalized = requestedRole.trim().toUpperCase();
+        if (ROLE_USER.equals(normalized) || ROLE_RECRUITER.equals(normalized)) {
+            return normalized;
+        }
+        return null;
     }
 
     private static String resolveNickname(RegisterRequest request) {

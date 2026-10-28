@@ -3,13 +3,13 @@
     <div class="login-card">
       <div class="login-header">
         <h1>CareerPilot</h1>
-        <p>创建求职者账号</p>
+        <p>{{ formState.role === 'RECRUITER' ? '创建招聘方账号' : '创建求职者账号' }}</p>
       </div>
       <a-alert
         type="info"
         show-icon
-        message="招聘方账号由平台管理员开通"
-        description="自助注册一律是求职者账号；需要招聘方权限请联系平台管理员提升角色。"
+        message="求职者与招聘方都可以自助注册"
+        description="求职者用于简历分析、岗位匹配与模拟面试；招聘方用于导入候选人简历、岗位匹配与深度洞察。管理员账号仍由平台授予。"
         style="margin-bottom: 20px; text-align: left"
       />
       <a-form
@@ -18,6 +18,13 @@
         layout="vertical"
         :rules="rules"
       >
+        <a-form-item label="账号类型" name="role">
+          <a-radio-group v-model:value="formState.role" button-style="solid" class="role-group">
+            <a-radio-button value="USER">我是求职者</a-radio-button>
+            <a-radio-button value="RECRUITER">我是招聘方</a-radio-button>
+          </a-radio-group>
+          <div class="role-hint">{{ roleHint }}</div>
+        </a-form-item>
         <a-form-item label="昵称" name="nickname">
           <a-input v-model:value="formState.nickname" placeholder="请输入昵称" size="large" />
         </a-form-item>
@@ -43,7 +50,9 @@
         </a-form-item>
         <div class="login-footer">
           已有账号？
-          <router-link :to="{ path: '/login', query: { role: 'seeker' } }">返回登录</router-link>
+          <router-link :to="{ path: '/login', query: { role: formState.role === 'RECRUITER' ? 'recruiter' : 'seeker' } }">
+            返回登录
+          </router-link>
           <span class="divider">·</span>
           <router-link to="/">返回首页</router-link>
         </div>
@@ -53,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { MailOutlined, LockOutlined } from '@ant-design/icons-vue'
@@ -64,12 +73,19 @@ const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
 
+type RegisterRole = 'USER' | 'RECRUITER'
+
 const formState = reactive({
+  role: (route.query.role === 'recruiter' ? 'RECRUITER' : 'USER') as RegisterRole,
   nickname: '',
   email: '',
   password: '',
   confirmPassword: '',
 })
+
+const roleHint = computed(() => formState.role === 'RECRUITER'
+  ? '导入你已收到的候选人简历，创建岗位 JD，做批量匹配与深度洞察。'
+  : '分析简历竞争力、匹配目标岗位、优化表达并练习模拟面试。')
 
 // 契约 §1.1：^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,32}$
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,32}$/
@@ -108,11 +124,14 @@ async function handleRegister() {
       email: formState.email,
       password: formState.password,
       nickname: formState.nickname || undefined,
+      role: formState.role,
     })
     message.success('注册成功')
+    const home = formState.role === 'RECRUITER' ? '/hr/dashboard' : '/seeker/dashboard'
+    const prefix = formState.role === 'RECRUITER' ? '/hr' : '/seeker'
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-    const allowed = redirect.startsWith('/seeker')
-    await router.replace(allowed && redirect ? redirect : '/seeker/dashboard')
+    const allowed = redirect.startsWith(prefix)
+    await router.replace(allowed && redirect ? redirect : home)
   } catch (err) {
     const msg = err instanceof Error ? err.message : ''
     if (!msg) message.error('注册失败，请稍后重试')
@@ -225,4 +244,29 @@ async function handleRegister() {
   }
 }
 
+
+.role-group {
+  display: flex;
+  width: 100%;
+}
+.role-group :deep(.ant-radio-button-wrapper) {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-color: var(--line-strong);
+}
+.role-group :deep(.ant-radio-button-wrapper-checked) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+.role-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
 </style>

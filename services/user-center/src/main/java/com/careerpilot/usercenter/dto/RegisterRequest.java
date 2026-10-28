@@ -17,4 +17,10 @@ public class RegisterRequest {
 
     private String nickname;
     private String inviteCode;
+
+    /**
+     * 自助注册可选的账号类型：USER（求职者）或 RECRUITER（招聘方）。
+     * 为空时默认 USER；ADMIN 不允许自助注册。
+     */
+    private String role;
 }

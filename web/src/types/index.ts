@@ -60,6 +60,8 @@ export interface RegisterParams {
   password: string
   nickname?: string
   inviteCode?: string | null
+  /** 自助注册可选：USER 求职者 / RECRUITER 招聘方；ADMIN 不允许自助注册 */
+  role?: 'USER' | 'RECRUITER'
 }
 
 export interface RefreshParams {

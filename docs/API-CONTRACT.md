@@ -74,10 +74,11 @@
 请求：
 
 ```json
-{ "email": "a@b.com", "password": "Abcd1234", "nickname": "阿花", "inviteCode": null }
+{ "email": "a@b.com", "password": "Abcd1234", "nickname": "阿花", "inviteCode": null, "role": "USER" }
 ```
 
 - `password` 正则：`^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,32}$`
+- `role`：自助注册可选 `USER`（求职者，默认）或 `RECRUITER`（招聘方）；`ADMIN` 不允许自助注册，只能由管理端授予。
 
 响应 `data`：**完整的登录响应**（注册即登录，不再让用户回登录页）：
 
@@ -93,7 +94,8 @@
     "email": "a@b.com",
     "nickname": "阿花",
     "avatar": null,
-    "membershipLevel": "FREE"
+    "membershipLevel": "FREE",
+    "role": "USER"
   }
 }
 ```
