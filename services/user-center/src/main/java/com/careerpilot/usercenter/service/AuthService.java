@@ -48,6 +48,12 @@ public class AuthService {
     /** 免费用户注册赠送的 AI 调用次数。 */
     private static final int FREE_AI_QUOTA = 3;
 
+    // 角色枚举：USER（求职者）/ RECRUITER（招聘方）/ ADMIN（平台运营）
+    // 这里刻意不做成 enum 落库，避免以后加角色要改表结构；白名单在 normalizeRole 收口。
+    public static final String ROLE_USER = "USER";
+    public static final String ROLE_RECRUITER = "RECRUITER";
+    public static final String ROLE_ADMIN = "ADMIN";
+
     private final UserMapper userMapper;
     private final UserProfileMapper userProfileMapper;
     private final MembershipMapper membershipMapper;
@@ -90,6 +96,8 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setNickname(resolveNickname(request));
         user.setStatus(1);
+        // 自助注册一律是最小权限；RECRUITER / ADMIN 只能由管理端授予
+        user.setRole(ROLE_USER);
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         userMapper.insert(user);
@@ -208,7 +216,7 @@ public class AuthService {
         }
 
         return ApiResponse.success(LoginResponse.builder()
-                .accessToken(generateAccessToken(userId))
+                .accessToken(generateAccessToken(userId, normalizeRole(user.getRole())))
                 // 刷新时不轮换 refreshToken，保持前端只需存一份
                 .refreshToken(request.getRefreshToken())
                 .tokenType("Bearer")
@@ -227,11 +235,13 @@ public class AuthService {
                 .getPayload();
     }
 
-    private String generateAccessToken(String userId) {
+    private String generateAccessToken(String userId, String role) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId)
                 .issuer("careerpilot")
+                // 角色写进令牌，网关据此做路由级授权；改角色后需重新登录才生效
+                .claim("role", role)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + accessTokenExpiration * 1000L))
                 .id(UUID.randomUUID().toString())
@@ -268,7 +278,7 @@ public class AuthService {
 
     private LoginResponse buildLoginResponse(User user, Membership membership) {
         return LoginResponse.builder()
-                .accessToken(generateAccessToken(user.getUserId()))
+                .accessToken(generateAccessToken(user.getUserId(), normalizeRole(user.getRole())))
                 .refreshToken(generateRefreshToken(user.getUserId()))
                 .tokenType("Bearer")
                 .expiresIn(accessTokenExpiration)
@@ -284,7 +294,15 @@ public class AuthService {
                 .nickname(user.getNickname())
                 .avatar(user.getAvatarUrl())
                 .membershipLevel(levelName(membership))
+                .role(normalizeRole(user.getRole()))
                 .build();
+    }
+
+    public static String normalizeRole(String role) {
+        if (ROLE_RECRUITER.equals(role) || ROLE_ADMIN.equals(role)) {
+            return role;
+        }
+        return ROLE_USER;
     }
 
     private Membership findMembership(String userId) {

@@ -20,11 +20,16 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 GW = os.environ.get("CAREERPILOT_GW", "http://127.0.0.1:8080")
 EMAIL = "hr@demo.local"
 PASSWORD = "Abcd1234"
+
+# 管理端引导账号（scripts/local/linux/bootstrap-admin.sh 创建）
+ADMIN_EMAIL = os.environ.get("CP_ADMIN_EMAIL", "admin@demo.local")
+ADMIN_PASSWORD = os.environ.get("CP_ADMIN_PASSWORD", "Admin1234")
 
 JD_TEXT = (
     "高级后端工程师（Kubernetes / CI/CD 方向）\n"
@@ -97,6 +102,42 @@ def wait_for(fn, timeout=120, interval=2):
     return None
 
 
+def ensure_recruiter(email, password):
+    """
+    演示账号必须是 RECRUITER，否则 /api/v1/hr/** 会被网关按角色拒绝。
+
+    通过管理端接口提升角色，再重新登录 —— 角色写在 accessToken 里，
+    不重新登录的话旧令牌仍然是 USER。
+    """
+    r = call("POST", "/api/v1/auth/login",
+             {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}, token="")
+    admin_token = (r.get("data") or {}).get("accessToken")
+    if not admin_token:
+        print("管理员账号不可用：%s（先跑 scripts/local/linux/bootstrap-admin.sh）" % ADMIN_EMAIL)
+        return None
+
+    listing = call("GET",
+                   "/api/v1/admin/users?page=1&size=100&keyword=" + urllib.parse.quote(email),
+                   token=admin_token)
+    records = ((listing.get("data") or {}).get("records") or [])
+    target = next((x for x in records if x.get("email") == email), None)
+    if not target:
+        print("管理端查不到账号：%s" % email)
+        return None
+
+    if target.get("role") != "RECRUITER":
+        updated = call("PUT", "/api/v1/admin/users/%s/role" % target["id"],
+                       {"role": "RECRUITER"}, token=admin_token)
+        if updated.get("code") != 0:
+            print("提升 RECRUITER 失败：%s" % updated.get("message"))
+            return None
+        print("已将 %s 提升为 RECRUITER" % email)
+
+    relogin = call("POST", "/api/v1/auth/login",
+                   {"email": email, "password": password}, token="")
+    return (relogin.get("data") or {}).get("accessToken")
+
+
 def main():
     global TOKEN
 
@@ -115,6 +156,13 @@ def main():
     if not TOKEN:
         print("拿不到令牌")
         return 1
+
+    # 1.5 角色：演示账号要能访问 /api/v1/hr/**
+    recruiter_token = ensure_recruiter(EMAIL, PASSWORD)
+    if not recruiter_token:
+        print("无法把演示账号提升为 RECRUITER，HR 报告将无法生成")
+        return 1
+    TOKEN = recruiter_token
 
     # 2. JD
     r = call("POST", "/api/v1/jd/upload",
@@ -171,7 +219,8 @@ def main():
     print("演示数据就绪。登录信息：")
     print("    邮箱：%s" % EMAIL)
     print("    密码：%s" % PASSWORD)
-    print("    入口：http://localhost:3000/hr-insight")
+    print("    入口：http://localhost:3000/hr/insight")
+    print("    管理端：http://localhost:3100（admin@demo.local / Admin1234）")
     print("=" * 60)
     return 0
 

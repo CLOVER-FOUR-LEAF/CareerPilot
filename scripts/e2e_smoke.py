@@ -23,9 +23,15 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 GW = "http://127.0.0.1:8080"
+
+# 管理端引导账号：HR 接口在网关按角色收口，测试账号需要先被提升为 RECRUITER。
+# 账号由 scripts/local/linux/bootstrap-admin.sh 创建，可用环境变量覆盖。
+ADMIN_EMAIL = os.environ.get("CP_ADMIN_EMAIL", "admin@demo.local")
+ADMIN_PASSWORD = os.environ.get("CP_ADMIN_PASSWORD", "Admin1234")
 
 PASSED = 0
 FAILED = 0
@@ -81,6 +87,43 @@ def step(name):
     print("\n-- %s" % name)
 
 
+def ensure_recruiter(email, password):
+    """
+    把测试账号提升为 RECRUITER，并重新登录换取带 role claim 的令牌。
+
+    HR 接口在网关按 JWT 里的 role 收口：注册出来的是 USER，
+    不提升的话 /api/v1/hr/** 一律 403。这也顺带验证了「管理员改角色」这条链路。
+    """
+    r = call("POST", "/api/v1/auth/login",
+             {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}, token="")
+    admin_token = (r.get("data") or {}).get("accessToken")
+    if not admin_token:
+        print("     [X] 管理员账号不可用：%s（先跑 scripts/local/linux/bootstrap-admin.sh）"
+              % ADMIN_EMAIL)
+        return None
+
+    listing = call("GET",
+                   "/api/v1/admin/users?page=1&size=100&keyword=" + urllib.parse.quote(email),
+                   token=admin_token)
+    records = ((listing.get("data") or {}).get("records") or [])
+    target = next((x for x in records if x.get("email") == email), None)
+    if not target:
+        print("     [X] 管理端查不到测试账号：%s" % email)
+        return None
+
+    if target.get("role") != "RECRUITER":
+        updated = call("PUT", "/api/v1/admin/users/%s/role" % target["id"],
+                       {"role": "RECRUITER"}, token=admin_token)
+        if updated.get("code") != 0:
+            print("     [X] 提升 RECRUITER 失败：%s" % updated.get("message"))
+            return None
+
+    # 角色写在 accessToken 里，必须重新登录才会生效
+    relogin = call("POST", "/api/v1/auth/login",
+                   {"email": email, "password": password}, token="")
+    return (relogin.get("data") or {}).get("accessToken")
+
+
 def wait_for(fn, timeout=90, interval=2):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -112,9 +155,11 @@ def multipart(field_file_path, file_field, title):
 
 # ── 1. 注册 ───────────────────────────────────────────────────────
 step("注册并拿到令牌")
+E2E_EMAIL = "e2e%d@test.com" % int(time.time() % 100000)
+E2E_PASSWORD = "Abcd1234"
 r = call("POST", "/api/v1/auth/register",
-         {"email": "e2e%d@test.com" % int(time.time() % 100000),
-          "password": "Abcd1234", "nickname": "E2E", "inviteCode": None})
+         {"email": E2E_EMAIL,
+          "password": E2E_PASSWORD, "nickname": "E2E", "inviteCode": None})
 check("注册返回 code=0", r.get("code") == 0, "(实际 %s)" % r.get("code"))
 TOKEN = (r.get("data") or {}).get("accessToken")
 check("拿到 accessToken", bool(TOKEN))
@@ -198,6 +243,12 @@ if m:
     check("识别出 gap", len(m.get("gapList") or []) > 0)
 
 # ── 5. HR 洞察 ──────────────────────────────────────────────────
+step("提升为招聘方（验证角色鉴权链路）")
+recruiter_token = ensure_recruiter(E2E_EMAIL, E2E_PASSWORD)
+check("拿到 RECRUITER 令牌", bool(recruiter_token))
+if recruiter_token:
+    TOKEN = recruiter_token
+
 step("HR 洞察报告（归因 + 验证计划）")
 r = call("POST", "/api/v1/hr/insight",
          {"resumeId": RESUME_ID, "jdId": JD_ID, "maxQuestions": 12})

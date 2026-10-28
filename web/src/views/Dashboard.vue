@@ -4,7 +4,7 @@
 
     <a-row :gutter="[16, 16]">
       <a-col :xs="24" :sm="12" :lg="8">
-        <a-card hoverable class="feature-card" @click="$router.push('/resume')">
+        <a-card hoverable class="feature-card" @click="$router.push('/seeker/resume')">
           <template #cover>
             <div class="card-icon" style="background: linear-gradient(135deg, #667eea, #764ba2)">
               <FileTextOutlined style="font-size: 48px; color: #fff" />
@@ -15,7 +15,7 @@
       </a-col>
 
       <a-col :xs="24" :sm="12" :lg="8">
-        <a-card hoverable class="feature-card" @click="$router.push('/jd')">
+        <a-card hoverable class="feature-card" @click="$router.push('/seeker/jd')">
           <template #cover>
             <div class="card-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c)">
               <FileSearchOutlined style="font-size: 48px; color: #fff" />
@@ -26,7 +26,7 @@
       </a-col>
 
       <a-col :xs="24" :sm="12" :lg="8">
-        <a-card hoverable class="feature-card" @click="$router.push('/match')">
+        <a-card hoverable class="feature-card" @click="$router.push('/seeker/match')">
           <template #cover>
             <div class="card-icon" style="background: linear-gradient(135deg, #4facfe, #00f2fe)">
               <AimOutlined style="font-size: 48px; color: #fff" />
@@ -63,7 +63,7 @@
 
     <a-row :gutter="[16, 16]" style="margin-top: 24px">
       <a-col :xs="24" :sm="12" :lg="6">
-        <a-card hoverable size="small" @click="$router.push('/optimize')">
+        <a-card hoverable size="small" @click="$router.push('/seeker/optimize')">
           <div class="tool-entry">
             <EditOutlined />
             <span>简历优化</span>
@@ -71,7 +71,7 @@
         </a-card>
       </a-col>
       <a-col :xs="24" :sm="12" :lg="6">
-        <a-card hoverable size="small" @click="$router.push('/interview')">
+        <a-card hoverable size="small" @click="$router.push('/seeker/interview')">
           <div class="tool-entry">
             <SolutionOutlined />
             <span>模拟面试</span>
@@ -79,7 +79,7 @@
         </a-card>
       </a-col>
       <a-col :xs="24" :sm="12" :lg="6">
-        <a-card hoverable size="small" @click="$router.push('/cover-letter')">
+        <a-card hoverable size="small" @click="$router.push('/seeker/cover-letter')">
           <div class="tool-entry">
             <MailOutlined />
             <span>生成求职信</span>
@@ -87,7 +87,7 @@
         </a-card>
       </a-col>
       <a-col :xs="24" :sm="12" :lg="6">
-        <a-card hoverable size="small" @click="$router.push('/career-plan')">
+        <a-card hoverable size="small" @click="$router.push('/seeker/career-plan')">
           <div class="tool-entry">
             <RocketOutlined />
             <span>职业规划</span>

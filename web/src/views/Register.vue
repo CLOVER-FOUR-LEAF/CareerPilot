@@ -3,8 +3,15 @@
     <div class="login-card">
       <div class="login-header">
         <h1>CareerPilot</h1>
-        <p>创建您的账号</p>
+        <p>创建求职者账号</p>
       </div>
+      <a-alert
+        type="info"
+        show-icon
+        message="招聘方账号由平台管理员开通"
+        description="自助注册一律是求职者账号；需要招聘方权限请联系平台管理员提升角色。"
+        style="margin-bottom: 20px; text-align: left"
+      />
       <a-form
         :model="formState"
         @finish="handleRegister"
@@ -36,7 +43,9 @@
         </a-form-item>
         <div class="login-footer">
           已有账号？
-          <router-link to="/login">返回登录</router-link>
+          <router-link :to="{ path: '/login', query: { role: 'seeker' } }">返回登录</router-link>
+          <span class="divider">·</span>
+          <router-link to="/">返回首页</router-link>
         </div>
       </a-form>
     </div>
@@ -102,7 +111,8 @@ async function handleRegister() {
     })
     message.success('注册成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-    await router.replace(redirect || '/dashboard')
+    const allowed = redirect.startsWith('/seeker')
+    await router.replace(allowed && redirect ? redirect : '/seeker/dashboard')
   } catch (err) {
     const msg = err instanceof Error ? err.message : ''
     if (!msg) message.error('注册失败，请稍后重试')
@@ -143,5 +153,9 @@ async function handleRegister() {
 .login-footer {
   text-align: center;
   color: #666;
+}
+.divider {
+  margin: 0 8px;
+  color: #bbb;
 }
 </style>

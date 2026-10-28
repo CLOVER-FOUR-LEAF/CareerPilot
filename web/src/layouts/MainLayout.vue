@@ -1,8 +1,11 @@
 <template>
   <a-layout class="main-layout">
     <a-layout-header class="header">
-      <div class="logo">
+      <div class="logo" @click="router.push(userStore.homePath)">
         <span class="logo-text">CareerPilot</span>
+        <a-tag v-if="userStore.isLoggedIn" class="role-tag" :color="roleColor">
+          {{ userStore.roleLabel }}
+        </a-tag>
       </div>
       <a-menu
         :selected-keys="selectedKeys"
@@ -24,8 +27,14 @@
               <a-menu-item key="profile">
                 <UserOutlined /> 个人中心
               </a-menu-item>
-              <a-menu-item key="membership">
+              <a-menu-item v-if="userStore.isSeeker" key="membership">
                 <CrownOutlined /> 会员权益
+              </a-menu-item>
+              <a-menu-item key="landing">
+                <HomeOutlined /> 官网首页
+              </a-menu-item>
+              <a-menu-item v-if="userStore.isAdmin" key="admin">
+                <SettingOutlined /> 管理后台
               </a-menu-item>
               <a-menu-divider />
               <a-menu-item key="logout">
@@ -57,11 +66,14 @@ import {
   EditOutlined,
   FileSearchOutlined,
   FileTextOutlined,
+  HomeOutlined,
   LogoutOutlined,
   MailOutlined,
   RocketOutlined,
+  SettingOutlined,
   SolutionOutlined,
   TeamOutlined,
+  ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -70,38 +82,64 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const menuRoutes: Record<string, string> = {
-  dashboard: '/dashboard',
-  resume: '/resume',
-  jd: '/jd',
-  match: '/match',
-  optimize: '/optimize',
-  interview: '/interview',
-  coverLetter: '/cover-letter',
-  careerPlan: '/career-plan',
-  hrInsight: '/hr-insight',
-}
+/** 菜单 key -> 路由；同一份表同时驱动「菜单渲染」和「当前项高亮」 */
+const MENU = {
+  seekerDashboard: { path: '/seeker/dashboard', label: '工作台', icon: DashboardOutlined },
+  seekerResume: { path: '/seeker/resume', label: '简历分析', icon: FileTextOutlined },
+  seekerJd: { path: '/seeker/jd', label: 'JD 解析', icon: FileSearchOutlined },
+  seekerMatch: { path: '/seeker/match', label: '匹配打分', icon: AimOutlined },
+  seekerOptimize: { path: '/seeker/optimize', label: '简历优化', icon: EditOutlined },
+  seekerInterview: { path: '/seeker/interview', label: '模拟面试', icon: SolutionOutlined },
+  seekerCoverLetter: { path: '/seeker/cover-letter', label: '求职信', icon: MailOutlined },
+  seekerCareerPlan: { path: '/seeker/career-plan', label: '职业规划', icon: RocketOutlined },
 
-const menuItems = [
-  { key: 'dashboard', icon: () => h(DashboardOutlined), label: '首页' },
-  { key: 'resume', icon: () => h(FileTextOutlined), label: '简历管理' },
-  { key: 'jd', icon: () => h(FileSearchOutlined), label: 'JD 解析' },
-  { key: 'match', icon: () => h(AimOutlined), label: '匹配打分' },
-  { key: 'optimize', icon: () => h(EditOutlined), label: '简历优化' },
-  { key: 'interview', icon: () => h(SolutionOutlined), label: '模拟面试' },
-  { key: 'coverLetter', icon: () => h(MailOutlined), label: '求职信' },
-  { key: 'careerPlan', icon: () => h(RocketOutlined), label: '职业规划' },
-  { key: 'hrInsight', icon: () => h(TeamOutlined), label: 'HR 洞察' },
-]
+  hrDashboard: { path: '/hr/dashboard', label: '招聘工作台', icon: TeamOutlined },
+  hrResumes: { path: '/hr/resumes', label: '候选人简历', icon: UserOutlined },
+  hrJds: { path: '/hr/jds', label: '岗位 JD', icon: FileSearchOutlined },
+  hrMatch: { path: '/hr/match', label: '岗位匹配', icon: AimOutlined },
+  hrInsight: { path: '/hr/insight', label: '深度洞察', icon: ThunderboltOutlined },
+} as const
 
-// 高亮当前路由（顶层面板中 firstSegment 即菜单 key）
-const selectedKeys = computed<string[]>(() => {
-  const segment = route.path.split('/')[1] || 'dashboard'
-  return Object.keys(menuRoutes).includes(segment) ? [segment] : []
+type MenuKey = keyof typeof MENU
+
+/** 求职者与招聘方看到的是两套菜单，互不混排 */
+const visibleKeys = computed<MenuKey[]>(() => {
+  if (userStore.canAccessHr) {
+    return ['hrDashboard', 'hrResumes', 'hrJds', 'hrMatch', 'hrInsight']
+  }
+  return [
+    'seekerDashboard', 'seekerResume', 'seekerJd', 'seekerMatch',
+    'seekerOptimize', 'seekerInterview', 'seekerCoverLetter', 'seekerCareerPlan',
+  ]
 })
 
+const menuItems = computed(() =>
+  visibleKeys.value.map((key) => ({
+    key,
+    icon: () => h(MENU[key].icon),
+    label: MENU[key].label,
+  })),
+)
+
+const selectedKeys = computed<string[]>(() => {
+  const hit = (Object.keys(MENU) as MenuKey[]).find((key) => {
+    const path = MENU[key].path
+    return route.path === path || route.path.startsWith(path + '/')
+  })
+  return hit ? [hit] : []
+})
+
+const roleColor = computed(() => {
+  if (userStore.role === 'ADMIN') return 'red'
+  return userStore.isRecruiter ? 'gold' : 'blue'
+})
+
+/** 管理端是独立前端（admin-web），默认同主机 3100 端口 */
+const adminUrl = import.meta.env.VITE_ADMIN_URL
+  || `${window.location.protocol}//${window.location.hostname}:3100`
+
 function handleMenuClick({ key }: { key: string | number }) {
-  const target = menuRoutes[String(key)]
+  const target = MENU[String(key) as MenuKey]?.path
   if (target && target !== route.path) {
     router.push(target)
   }
@@ -109,9 +147,13 @@ function handleMenuClick({ key }: { key: string | number }) {
 
 function handleUserMenuClick({ key }: { key: string | number }) {
   if (key === 'profile') {
-    router.push('/profile')
+    router.push(userStore.canAccessHr ? '/hr/profile' : '/seeker/profile')
   } else if (key === 'membership') {
-    router.push({ path: '/profile', query: { tab: 'membership' } })
+    router.push({ path: '/seeker/profile', query: { tab: 'membership' } })
+  } else if (key === 'landing') {
+    router.push('/')
+  } else if (key === 'admin') {
+    window.location.href = adminUrl
   } else if (key === 'logout') {
     handleLogout()
   }
@@ -119,7 +161,7 @@ function handleUserMenuClick({ key }: { key: string | number }) {
 
 async function handleLogout() {
   await userStore.logout()
-  router.push('/login')
+  router.push('/')
 }
 
 onMounted(async () => {
@@ -146,11 +188,20 @@ onMounted(async () => {
 .logo {
   margin-right: 24px;
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
 }
 .logo-text {
   color: #fff;
   font-size: 20px;
   font-weight: bold;
+}
+.role-tag {
+  margin: 0;
+  font-size: 12px;
+  line-height: 20px;
 }
 .header-right {
   margin-left: auto;

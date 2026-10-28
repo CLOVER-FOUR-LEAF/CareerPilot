@@ -10,7 +10,7 @@ import {
   refreshToken as storedRefreshToken,
   setUser,
 } from '@/utils/storage'
-import type { ApiResponse, LoginResponse, UpdateProfileParams, UserProfile } from '@/types'
+import type { ApiResponse, LoginResponse, UpdateProfileParams, UserProfile, UserRole } from '@/types'
 
 export interface RegisterPayload {
   email: string
@@ -26,6 +26,21 @@ export const useUserStore = defineStore('user', () => {
 
   const isLoggedIn = computed(() => token.value.length > 0)
   const nickname = computed(() => user.value?.nickname || '')
+  /** 角色缺失时按最小权限处理，避免旧 token 意外获得 HR 入口 */
+  const role = computed<UserRole>(() => user.value?.role || 'USER')
+  const isSeeker = computed(() => role.value === 'USER')
+  const isRecruiter = computed(() => role.value === 'RECRUITER')
+  const isAdmin = computed(() => role.value === 'ADMIN')
+  const canAccessHr = computed(() => isRecruiter.value || isAdmin.value)
+  /** 登录后的默认落地页：两端按子路径隔离 */
+  const homePath = computed(() => (isSeeker.value ? '/seeker/dashboard' : '/hr/dashboard'))
+  const roleLabel = computed(() => {
+    switch (role.value) {
+      case 'RECRUITER': return '招聘方'
+      case 'ADMIN': return '平台管理员'
+      default: return '求职者'
+    }
+  })
   const avatarText = computed(() => {
     const source = user.value?.nickname || user.value?.email || 'U'
     return source.charAt(0).toUpperCase()
@@ -92,6 +107,13 @@ export const useUserStore = defineStore('user', () => {
     user,
     isLoggedIn,
     nickname,
+    role,
+    roleLabel,
+    isSeeker,
+    isRecruiter,
+    isAdmin,
+    canAccessHr,
+    homePath,
     avatarText,
     login,
     register,

@@ -1,7 +1,7 @@
 <template>
   <div class="hr-page">
     <a-page-header
-      title="HR 洞察"
+      title="深度洞察"
       sub-title="把简历里的证据缺口，转成面试官可以直接用的验证问题"
     >
       <template #extra>
@@ -45,7 +45,7 @@
               :disabled="!form.jdId || !form.resumeId"
               @click="handleGenerate"
             >
-              <ThunderboltOutlined /> 生成 HR 报告
+              <ThunderboltOutlined /> 生成深度洞察报告
             </a-button>
           </a-form>
 
@@ -69,10 +69,11 @@
             <template #renderItem="{ item }">
               <a-list-item>
                 <a @click="openInsight(item.insightId)">
-                  {{ item.createdAt?.slice(0, 16) }}
+                  {{ jdLabel(item.jdId) }} × {{ resumeLabel(item.resumeId) }}
                   <a-tag :color="item.status === 'SUCCESS' ? 'green' : 'blue'" style="margin-left: 8px">
                     {{ item.status === 'SUCCESS' ? '已完成' : '进行中' }}
                   </a-tag>
+                  <div class="history-time">{{ item.createdAt?.slice(0, 16) }}</div>
                 </a>
               </a-list-item>
             </template>
@@ -233,7 +234,7 @@
         </a-card>
 
         <a-card v-else class="panel">
-          <a-empty description="选择 JD 与简历后点击「生成 HR 报告」" />
+          <a-empty description="选择 JD 与简历后点击「生成深度洞察报告」" />
         </a-card>
       </a-col>
     </a-row>
@@ -242,6 +243,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { ThunderboltOutlined } from '@ant-design/icons-vue'
 import { hrApi, jdApi, resumeApi } from '@/api'
@@ -262,9 +264,11 @@ const form = reactive({
   maxQuestions: 12,
 })
 
+const route = useRoute()
+
 const jds = ref<JdListItem[]>([])
 const resumes = ref<ResumeListItem[]>([])
-const noJdContent = '没有 JD，请先到 JD 解析页新建'
+const noJdContent = '没有 JD，请先到「岗位 JD」页创建'
 
 const report = ref<HrInsightReport | null>(null)
 const insightId = ref('')
@@ -290,6 +294,16 @@ const jdOptions = computed(() =>
 const resumeOptions = computed(() =>
   resumes.value.map((item) => ({ label: item.title, value: item.resumeId })),
 )
+
+function jdLabel(bizId: string | null) {
+  if (!bizId) return '未命名岗位'
+  return jds.value.find((item) => item.jdBizId === bizId)?.title || bizId
+}
+
+function resumeLabel(bizId: string | null) {
+  if (!bizId) return '未命名简历'
+  return resumes.value.find((item) => item.resumeBizId === bizId)?.title || bizId
+}
 
 async function fetchOptions() {
   try {
@@ -470,7 +484,12 @@ function verdictColor(verdict: VerificationVerdict | null | undefined): string {
   }
 }
 
-onMounted(fetchOptions)
+onMounted(async () => {
+  await fetchOptions()
+  await loadHistory()
+  const queryInsightId = typeof route.query.insightId === 'string' ? route.query.insightId : ''
+  if (queryInsightId) await openInsight(queryInsightId)
+})
 </script>
 
 <style scoped>
@@ -486,6 +505,11 @@ onMounted(fetchOptions)
   font-size: 15px;
   font-weight: 600;
   color: #333;
+}
+.history-time {
+  color: #999;
+  font-size: 11px;
+  margin-top: 2px;
 }
 .coverage-row {
   display: flex;

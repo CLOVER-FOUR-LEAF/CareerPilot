@@ -30,5 +30,7 @@ public class LoginResponse {
         private String avatar;
         /** FREE / PRO / ENTERPRISE */
         private String membershipLevel;
+        /** USER / RECRUITER / ADMIN —— 前端据此决定路由与菜单 */
+        private String role;
     }
 }

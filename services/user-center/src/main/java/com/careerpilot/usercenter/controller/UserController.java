@@ -11,6 +11,7 @@ import com.careerpilot.usercenter.entity.UserProfile;
 import com.careerpilot.usercenter.mapper.MembershipMapper;
 import com.careerpilot.usercenter.mapper.UserMapper;
 import com.careerpilot.usercenter.mapper.UserProfileMapper;
+import com.careerpilot.usercenter.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,6 +52,7 @@ public class UserController {
         dto.setPhone(maskPhone(user.getPhone()));
         dto.setNickname(user.getNickname());
         dto.setAvatar(user.getAvatarUrl());
+        dto.setRole(AuthService.normalizeRole(user.getRole()));
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
 

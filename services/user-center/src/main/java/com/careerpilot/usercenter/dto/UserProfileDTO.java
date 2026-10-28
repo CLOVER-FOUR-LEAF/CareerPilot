@@ -20,6 +20,8 @@ public class UserProfileDTO {
     private String phone;
     private String nickname;
     private String avatar;
+    /** USER / RECRUITER / ADMIN */
+    private String role;
 
     private String gender;
     private Integer birthYear;

@@ -1,6 +1,9 @@
 <template>
   <div class="profile-page">
-    <a-page-header title="个人中心" sub-title="完善求职档案，让 AI 建议更贴合你的目标" />
+    <a-page-header
+      title="个人中心"
+      :sub-title="userStore.canAccessHr ? '维护招聘方账号资料' : '完善求职档案，让 AI 建议更贴合你的目标'"
+    />
 
     <a-tabs v-model:active-key="activeTab">
       <!-- 基本资料：§1.5 -->
@@ -130,8 +133,8 @@
         </a-card>
       </a-tab-pane>
 
-      <!-- 会员权益：§1.6 -->
-      <a-tab-pane key="membership" tab="会员权益">
+      <!-- 会员权益：§1.6（仅求职者展示） -->
+      <a-tab-pane v-if="userStore.isSeeker" key="membership" tab="会员权益">
         <a-card :loading="membershipLoading">
           <template v-if="membership">
             <a-row :gutter="16">
@@ -187,6 +190,7 @@ import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { CrownOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { userApi } from '@/api'
+import { useUserStore } from '@/stores/user'
 import type { Membership, UpdateProfileParams, UserProfile } from '@/types'
 
 interface ProfileForm {
@@ -212,8 +216,11 @@ interface ProfileForm {
 }
 
 const route = useRoute()
+const userStore = useUserStore()
 
-const activeTab = ref<string>(route.query.tab === 'membership' ? 'membership' : 'profile')
+const activeTab = ref<string>(
+  route.query.tab === 'membership' && userStore.isSeeker ? 'membership' : 'profile',
+)
 const loading = ref(false)
 const saving = ref(false)
 const membershipLoading = ref(false)

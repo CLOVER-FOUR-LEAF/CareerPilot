@@ -1,0 +1,78 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: admin-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/careerpilot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:careerpilot}
+    password: ${MYSQL_PASSWORD:cp123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+# 与 user-center / gateway 共用同一把密钥：管理端自己验签，不信任网关注入的角色头
+jwt:
+  secret: ${JWT_SECRET:careerpilot-default-secret-key-must-be-at-least-256-bits-long-for-hs256}
+
+logging:
+  level:
+    root: INFO
+    com.careerpilot: DEBUG
+
+# ── 服务健康探测目标 ─────────────────────────────────────────
+# 端口都可以用环境变量覆盖；等接入 Nacos 后改成从注册表拉实例。
+platform:
+  probes:
+    - name: gateway-service
+      group: java
+      url: http://localhost:${GATEWAY_PORT:8080}/actuator/health
+    - name: user-center
+      group: java
+      # 标准端口 8081；Linux 启动脚本因本机端口占用会导出 USER_CENTER_PORT=18081
+      url: http://localhost:${USER_CENTER_PORT:8081}/actuator/health
+    - name: resume-service
+      group: java
+      url: http://localhost:${RESUME_SERVICE_PORT:8082}/actuator/health
+    - name: jd-service
+      group: java
+      url: http://localhost:${JD_SERVICE_PORT:8083}/actuator/health
+    - name: match-service
+      group: java
+      url: http://localhost:${MATCH_SERVICE_PORT:8084}/actuator/health
+    - name: ai-task-scheduler
+      group: java
+      url: http://localhost:${AI_SCHEDULER_PORT:8085}/actuator/health
+    - name: agent-orchestrator
+      group: agent
+      url: http://localhost:${ORCHESTRATOR_PORT:8001}/health
+    - name: jd-parser-agent
+      group: agent
+      url: http://localhost:${JD_PARSER_PORT:8002}/health
+    - name: resume-analyzer-agent
+      group: agent
+      url: http://localhost:${RESUME_ANALYZER_PORT:8003}/health
+    - name: match-agent
+      group: agent
+      url: http://localhost:${MATCH_AGENT_PORT:8004}/health
+    - name: resume-optimizer-agent
+      group: agent
+      url: http://localhost:${RESUME_OPTIMIZER_PORT:8005}/health
+    - name: interview-agent
+      group: agent
+      url: http://localhost:${INTERVIEW_AGENT_PORT:8006}/health
+    - name: cover-letter-agent
+      group: agent
+      url: http://localhost:${COVER_LETTER_PORT:8007}/health
+    - name: career-advisor-agent
+      group: agent
+      url: http://localhost:${CAREER_ADVISOR_PORT:8008}/health

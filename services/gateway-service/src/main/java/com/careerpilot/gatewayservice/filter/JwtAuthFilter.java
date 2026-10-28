@@ -36,6 +36,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private String jwtSecret;
 
     private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String USER_ROLE_HEADER = "X-User-Role";
+
+    private static final String ROLE_USER = "USER";
+    private static final String ROLE_RECRUITER = "RECRUITER";
+    private static final String ROLE_ADMIN = "ADMIN";
 
     /** 无需登录即可访问的路径。 */
     private static final List<String> WHITE_LIST = List.of(
@@ -64,9 +69,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         }
 
         if (WHITE_LIST.stream().anyMatch(path::startsWith)) {
-            // 白名单路径也要剥掉伪造的 X-User-Id，防止把别人的身份"带"进去
+            // 白名单路径也要剥掉伪造的身份头，防止把别人的身份"带"进去
             return chain.filter(exchange.mutate()
-                    .request(stripUserHeader(request)).build());
+                    .request(stripIdentityHeaders(request)).build());
         }
 
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
@@ -75,6 +80,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         }
 
         String userId;
+        String role;
         try {
             SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
             Claims claims = Jwts.parser()
@@ -83,6 +89,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     .parseSignedClaims(authHeader.substring(7))
                     .getPayload();
             userId = claims.getSubject();
+            role = normalizeRole(claims.get("role", String.class));
         } catch (Exception e) {
             log.debug("JWT 校验失败: {}", e.getMessage());
             return unauthorized(exchange);
@@ -92,23 +99,58 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return unauthorized(exchange);
         }
 
+        // 路由级授权：管理端 / HR 端按角色收口。
+        // 放在网关而不是各业务服务里，是为了「新增一个服务时不会漏配权限」。
+        String denied = authorize(path, role);
+        if (denied != null) {
+            return forbidden(exchange, denied);
+        }
+
         /*
-         * 必须先剥掉客户端传来的 X-User-Id 再写真正的值。
+         * 必须先剥掉客户端传来的 X-User-Id / X-User-Role 再写真正的值。
          *
          * mutate().header() 是「追加」而不是「替换」—— 只追加的话，
          * 外部请求自带一个 X-User-Id 就能让下游读到伪造的身份，直接变成越权。
          */
-        ServerHttpRequest mutated = stripUserHeader(request)
+        ServerHttpRequest mutated = stripIdentityHeaders(request)
                 .mutate()
                 .header(USER_ID_HEADER, userId)
+                .header(USER_ROLE_HEADER, role)
                 .build();
 
         return chain.filter(exchange.mutate().request(mutated).build());
     }
 
-    private ServerHttpRequest stripUserHeader(ServerHttpRequest request) {
+    /**
+     * 返回 null 表示放行，否则返回给前端的拒绝原因。
+     *
+     * <p>注意这里只做「粗粒度入口授权」：某个 HR 能不能看某份简历，
+     * 仍然由业务服务基于数据归属做二次校验，两层缺一不可。
+     */
+    private String authorize(String path, String role) {
+        if (path.startsWith("/api/v1/admin/")) {
+            return ROLE_ADMIN.equals(role) ? null : "需要平台管理员权限";
+        }
+        if (path.startsWith("/api/v1/hr/")) {
+            return (ROLE_RECRUITER.equals(role) || ROLE_ADMIN.equals(role))
+                    ? null : "需要招聘方权限";
+        }
+        return null;
+    }
+
+    private String normalizeRole(String role) {
+        if (ROLE_RECRUITER.equals(role) || ROLE_ADMIN.equals(role)) {
+            return role;
+        }
+        return ROLE_USER;
+    }
+
+    private ServerHttpRequest stripIdentityHeaders(ServerHttpRequest request) {
         return request.mutate()
-                .headers(headers -> headers.remove(USER_ID_HEADER))
+                .headers(headers -> {
+                    headers.remove(USER_ID_HEADER);
+                    headers.remove(USER_ROLE_HEADER);
+                })
                 .build();
     }
 

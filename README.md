@@ -99,7 +99,8 @@ CareerPilot/
 │   ├── resume-service/       8082  简历上传 / 版本 / ATS 评分
 │   ├── jd-service/           8083  JD 解析
 │   ├── match-service/        8084  匹配打分 / Gap List
-│   └── ai-task-scheduler/    8085  任务编排 / SSE 进度 / 回调分发
+│   ├── ai-task-scheduler/    8085  任务编排 / SSE 进度 / 回调分发
+│   └── admin-service/        8086  ★ 平台管理端（仅 ADMIN）
 ├── agents/                   Python AI 层
 │   ├── agent-orchestrator/   8001  LangGraph 编排
 │   ├── jd-parser-agent/      8002
@@ -109,10 +110,14 @@ CareerPilot/
 │   ├── interview-agent/      8006
 │   ├── cover-letter-agent/   8007
 │   └── career-advisor-agent/ 8008  RAG 行业知识库
-├── web/                      Vue 前端
+├── web/                      ★ 用户端 Vue 前端（/ 官网首页 + /seeker 求职者 + /hr 招聘方）
+├── admin-web/                ★ 管理端独立前端（运营/用户行为/Agent 配置/健康/审计）
 ├── android/                  ★ Android 原生客户端（Kotlin + Jetpack Compose）
 └── deploy/nginx/             Nginx 配置（可选，用静态产物模式时用）
 ```
+
+> 三端拆分（角色模型、路由矩阵、鉴权链路）见 [`docs/PLATFORM-SPLIT.md`](./docs/PLATFORM-SPLIT.md)。
+> Nacos 接入评估见 [`docs/NACOS-PLAN.md`](./docs/NACOS-PLAN.md)。
 
 ---
 
@@ -136,8 +141,12 @@ cd android
 
 ## 本地启动
 
-**不依赖 Docker。** 全部进程直接跑在本机：MySQL / Redis 是本机服务，
-6 个 Java 微服务是 JVM 进程，8 个 Python Agent 是 uvicorn 进程，前端是 vite dev server。
+> **Linux / Docker**：用 `scripts/local/linux/start-all.sh`（基础设施跑 Docker），
+> 详细步骤见 [`docs/PLATFORM-SPLIT.md`](./docs/PLATFORM-SPLIT.md#5-本地启动与账号)。
+> 下面这节是 Windows 本机直跑的方式。
+
+**Windows 下不依赖 Docker。** 全部进程直接跑在本机：MySQL / Redis 是本机服务，
+6 个 Java 微服务 + 1 个管理服务是 JVM 进程，8 个 Python Agent 是 uvicorn 进程，两个前端是 vite dev server。
 
 ### 0. 前置
 
@@ -188,11 +197,22 @@ powershell -File scripts\local\start-all.ps1
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:3000 | 前端 |
+| http://localhost:3000 | 官网首页（项目介绍 + 求职者 / 招聘者双入口） |
+| http://localhost:3000/seeker/dashboard | 求职者工作台（需 USER） |
+| http://localhost:3000/hr/dashboard | 招聘方工作台（需 RECRUITER / ADMIN） |
+| http://localhost:3100 | 管理端（仅 ADMIN）：概览 / 用户行为 / Agent 配置 / 配置 / 健康 / 审计 |
 | http://localhost:8080 | 网关直连 |
 | http://localhost:8080/actuator/health | 健康检查 |
 | http://localhost:8001/docs | 编排服务 OpenAPI |
 | http://localhost:8004/docs | 匹配 Agent OpenAPI |
+
+演示账号（Linux/Docker 环境用 `scripts/local/linux/bootstrap-admin.sh` 引导）：
+
+| 账号 | 密码 | 角色 |
+|---|---|---|
+| `user@demo.local` | `User1234` | USER |
+| `hr@demo.local` | `Abcd1234` | RECRUITER |
+| `admin@demo.local` | `Admin1234` | ADMIN |
 
 ### 4. 分步启动 / 状态 / 停止
 

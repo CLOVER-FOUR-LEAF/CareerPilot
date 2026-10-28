@@ -19,6 +19,8 @@ public class User {
     private String nickname;
     private String avatarUrl;
     private Integer status;
+    /** USER / RECRUITER / ADMIN —— 授权维度，不是账号类型 */
+    private String role;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

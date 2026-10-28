@@ -10,6 +10,7 @@ mvnw.cmd
 # ── Node / 前端 ───────────────────────────────────────────────
 node_modules/
 web/dist/
+admin-web/dist/
 web/.vite/
 *.local
 npm-debug.log*

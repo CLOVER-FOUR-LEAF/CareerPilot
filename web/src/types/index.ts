@@ -29,6 +29,9 @@ export interface ApiError extends Error {
 
 export type MembershipLevel = 'FREE' | 'PRO' | 'ULTRA'
 
+/** 授权角色：求职者 / 招聘方 / 平台管理员 */
+export type UserRole = 'USER' | 'RECRUITER' | 'ADMIN'
+
 export interface AuthUser {
   userId: number
   userIdBiz: string
@@ -36,6 +39,7 @@ export interface AuthUser {
   nickname: string
   avatar: string | null
   membershipLevel: string
+  role: UserRole
 }
 
 export interface LoginResponse {
@@ -72,6 +76,7 @@ export interface UserProfile {
   phone: string | null
   nickname: string
   avatar: string | null
+  role: UserRole
   gender: string | null
   birthYear: number | null
   city: string | null
@@ -285,6 +290,7 @@ export interface MatchRecord {
   finalScore: number | null
   matchedSkills: string[]
   gapList: MatchGap[]
+  errorMessage?: string | null
   createdAt: string
   completedAt: string | null
 }

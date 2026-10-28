@@ -18,6 +18,8 @@
         <module>jd-service</module>
         <module>match-service</module>
         <module>ai-task-scheduler</module>
+        <!-- 平台管理端：独立服务，只给 ADMIN 角色使用 -->
+        <module>admin-service</module>
     </modules>
 
     <properties>
